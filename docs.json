@@ -69,7 +69,15 @@
               "api/language-switch-service",
               "api/auth-store",
               "api/notifications-store",
-              "api/local-repository"
+              "api/local-repository",
+              "api/platform-service"
+            ]
+          },
+          {
+            "group": "Components",
+            "pages": [
+              "api/notifications-component",
+              "api/cookies-component"
             ]
           },
           {
@@ -84,7 +92,8 @@
             "pages": [
               "api/app-config",
               "api/translation-config",
-              "api/environment"
+              "api/environment",
+              "api/error-handler"
             ]
           }
         ]

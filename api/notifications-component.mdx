@@ -1,0 +1,175 @@
+---
+title: NotificationsComponent
+description: UI component for displaying notifications in a dialog
+---
+
+## Overview
+
+The `NotificationsComponent` is a standalone component that displays a list of notifications to the user in a dialog. It uses signal inputs and outputs for reactive data flow.
+
+<Note>
+This component is typically used in conjunction with the `NotificationsStore` to display application-wide notifications.
+</Note>
+
+## Component definition
+
+```typescript src/app/shared/ui/notifications.component.ts
+@Component({
+  selector: 'lab-notifications',
+  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class NotificationsComponent
+```
+
+## Inputs
+
+<ParamField path="notifications" type="InputSignal<Notification[]>" required>
+  Signal input containing the array of notifications to display. Each notification has a `message` (string) and `type` ('info' | 'error').
+</ParamField>
+
+## Outputs
+
+<ParamField path="close" type="OutputEmitterRef<void>">
+  Event emitted when the user clicks the close button. Parent component should handle this to close/clear notifications.
+</ParamField>
+
+## Usage
+
+### Basic usage with NotificationsStore
+
+```typescript
+import { Component, inject } from '@angular/core';
+import { NotificationsComponent } from '@ui/notifications.component';
+import { NotificationsStore } from '@state/notifications.store';
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [NotificationsComponent],
+  template: `
+    @if (notificationsStore.count() > 0) {
+      <lab-notifications 
+        [notifications]="notificationsStore.notifications()"
+        (close)="notificationsStore.clearNotifications()"
+      />
+    }
+  `
+})
+export class AppComponent {
+  notificationsStore = inject(NotificationsStore);
+}
+```
+
+### Manual notification management
+
+```typescript
+import { Component, signal } from '@angular/core';
+import { NotificationsComponent } from '@ui/notifications.component';
+import { Notification } from '@domain/notification.type';
+
+@Component({
+  selector: 'app-example',
+  standalone: true,
+  imports: [NotificationsComponent],
+  template: `
+    @if (notifications().length > 0) {
+      <lab-notifications 
+        [notifications]="notifications()"
+        (close)="handleClose()"
+      />
+    }
+    
+    <button (click)="addNotification()">Show Notification</button>
+  `
+})
+export class ExampleComponent {
+  notifications = signal<Notification[]>([]);
+  
+  addNotification(): void {
+    this.notifications.update(current => [
+      ...current,
+      { message: 'Operation completed successfully', type: 'info' }
+    ]);
+  }
+  
+  handleClose(): void {
+    this.notifications.set([]);
+  }
+}
+```
+
+### Conditional display based on type
+
+The component automatically styles notifications based on their type:
+
+- **Error notifications** (`type: 'error'`) - Display with `aria-invalid="true"` for error styling
+- **Info notifications** (`type: 'info'`) - Display with `aria-invalid="false"` for normal styling
+
+## Template structure
+
+The component renders a dialog with:
+
+1. **Header** - "Notifications" title
+2. **Body** - List of notification inputs (disabled, with appropriate aria-invalid state)
+3. **Footer** - Close button
+
+```html
+<dialog open>
+  <article>
+    <header>
+      <h2>Notifications</h2>
+    </header>
+    @for (notification of notifications(); track notification) {
+      @if (notification.type === 'error') {
+        <input disabled aria-invalid="true" [value]="notification.message" />
+      } @else {
+        <input disabled aria-invalid="false" [value]="notification.message" />
+      }
+    }
+    <footer>
+      <button (click)="close.emit()">Close</button>
+    </footer>
+  </article>
+</dialog>
+```
+
+## Modern Angular features
+
+This component demonstrates several modern Angular patterns:
+
+- **Standalone component** - No module required
+- **Signal inputs** - `input<Notification[]>()` for reactive props
+- **Output functions** - `output()` for type-safe events
+- **OnPush change detection** - Optimized performance
+- **Control flow syntax** - `@for` and `@if` for template logic
+
+## Notification type
+
+The component uses the `Notification` type from the domain layer:
+
+```typescript
+export type Notification = { 
+  message: string; 
+  type: 'info' | 'error' 
+};
+```
+
+## Integration with error handling
+
+This component is automatically used by the global [error handler](/api/error-handler) to display unhandled errors:
+
+1. Error occurs anywhere in the app
+2. ErrorService catches it and adds to NotificationsStore
+3. NotificationsComponent displays the error to the user
+4. User clicks close to dismiss
+
+## Styling
+
+The component uses semantic HTML elements (`dialog`, `article`, `header`, `footer`) and relies on your application's global styles for appearance. The `aria-invalid` attribute allows you to style errors differently from info messages.
+
+## Related APIs
+
+- [NotificationsStore](/api/notifications-store) - State management for notifications
+- [Error handler](/api/error-handler) - Global error handling that uses notifications
+- [Notification type](https://github.com/profileit/angular-18-archetype/blob/main/src/app/shared/domain/notification.type.ts) - Type definition

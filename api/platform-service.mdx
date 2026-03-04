@@ -1,0 +1,114 @@
+---
+title: PlatformService
+description: SSR-safe platform detection service for browser and server environments
+---
+
+## Overview
+
+The `PlatformService` provides a safe way to detect whether the application is running in the browser or on the server. This is essential for server-side rendering (SSR) support, preventing errors when trying to access browser-only APIs like `window` or `localStorage`.
+
+<Note>
+This service is automatically provided at the root level and can be injected anywhere in your application.
+</Note>
+
+## Class definition
+
+```typescript src/app/shared/services/utils/platform.service.ts
+@Injectable({
+  providedIn: 'root',
+})
+export class PlatformService {
+  get isServer(): boolean;
+  get isBrowser(): boolean;
+}
+```
+
+## Properties
+
+<ParamField path="isServer" type="boolean">
+  Returns `true` when the application is running on the server (SSR mode).
+</ParamField>
+
+<ParamField path="isBrowser" type="boolean">
+  Returns `true` when the application is running in the browser.
+</ParamField>
+
+## Usage
+
+### Check platform before accessing browser APIs
+
+Use `PlatformService` to conditionally execute browser-only code:
+
+```typescript
+import { Component, inject } from '@angular/core';
+import { PlatformService } from '@services/utils/platform.service';
+
+@Component({
+  selector: 'app-my-component',
+  standalone: true,
+  template: `<p>Platform: {{ platformInfo }}</p>`
+})
+export class MyComponent {
+  private platformService = inject(PlatformService);
+  
+  platformInfo = this.platformService.isBrowser ? 'Browser' : 'Server';
+  
+  ngOnInit() {
+    if (this.platformService.isBrowser) {
+      // Safe to access window, localStorage, etc.
+      const width = window.innerWidth;
+      console.log('Window width:', width);
+    }
+  }
+}
+```
+
+### Prevent localStorage errors in SSR
+
+```typescript
+import { inject } from '@angular/core';
+import { PlatformService } from '@services/utils/platform.service';
+
+export class MyService {
+  private platformService = inject(PlatformService);
+  
+  saveToStorage(key: string, value: string): void {
+    if (this.platformService.isBrowser) {
+      localStorage.setItem(key, value);
+    }
+  }
+  
+  getFromStorage(key: string): string | null {
+    if (this.platformService.isBrowser) {
+      return localStorage.getItem(key);
+    }
+    return null;
+  }
+}
+```
+
+### Alternative: LocalRepository
+
+For localStorage operations, prefer using the `LocalRepository` service which already handles SSR safely:
+
+```typescript
+import { inject } from '@angular/core';
+import { LocalRepository } from '@services/utils/local.repository';
+
+export class MyService {
+  private localRepository = inject(LocalRepository);
+  
+  saveData(data: MyType): void {
+    this.localRepository.save('myKey', data);
+  }
+}
+```
+
+## Implementation details
+
+The service uses Angular's `PLATFORM_ID` token and `isPlatformServer` helper to detect the runtime environment. When running on the server, it also disables console logging to prevent server-side console pollution.
+
+## Related APIs
+
+- [LocalRepository](/api/local-repository) - SSR-safe localStorage wrapper (preferred for storage operations)
+- [AuthStore](/api/auth-store) - Uses LocalRepository for SSR-safe state persistence

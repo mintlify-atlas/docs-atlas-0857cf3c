@@ -1,0 +1,259 @@
+---
+title: CookiesComponent
+description: GDPR-compliant cookie consent dialog component
+---
+
+## Overview
+
+The `CookiesComponent` provides a GDPR-compliant dialog for obtaining user consent before setting cookies. It offers three options: reject all, accept essential cookies only, or accept all cookies.
+
+<Note>
+This component is designed for EU GDPR compliance and uses modern Angular signals for outputs.
+</Note>
+
+## Component definition
+
+```typescript src/app/core/layout/cookies.component.ts
+@Component({
+  selector: 'lab-cookies',
+  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class CookiesComponent
+```
+
+## Outputs
+
+<ParamField path="cancel" type="OutputEmitterRef<void>">
+  Emitted when the user clicks the "Cancel" button, rejecting all cookies.
+</ParamField>
+
+<ParamField path="accept" type="OutputEmitterRef<Acceptance>">
+  Emitted when the user accepts cookies. The value is either `'essentials'` (only necessary cookies) or `'all'` (all cookies including tracking/analytics).
+</ParamField>
+
+## Acceptance type
+
+```typescript
+type Acceptance = 'essentials' | 'all';
+```
+
+## Usage
+
+### Basic implementation
+
+```typescript
+import { Component } from '@angular/core';
+import { CookiesComponent } from './core/layout/cookies.component';
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [CookiesComponent],
+  template: `
+    @if (showCookieDialog) {
+      <lab-cookies 
+        (cancel)="handleCancel()"
+        (accept)="handleAccept($event)"
+      />
+    }
+    
+    <!-- Your app content -->
+  `
+})
+export class AppComponent {
+  showCookieDialog = !this.hasCookieConsent();
+  
+  handleCancel(): void {
+    console.log('User rejected cookies');
+    this.showCookieDialog = false;
+    // Don't set any cookies
+  }
+  
+  handleAccept(acceptance: 'essentials' | 'all'): void {
+    console.log('User accepted:', acceptance);
+    this.showCookieDialog = false;
+    localStorage.setItem('cookieConsent', acceptance);
+    
+    if (acceptance === 'all') {
+      // Enable analytics, tracking, etc.
+      this.enableAnalytics();
+    }
+    // Essential cookies are always enabled
+  }
+  
+  private hasCookieConsent(): boolean {
+    return localStorage.getItem('cookieConsent') !== null;
+  }
+  
+  private enableAnalytics(): void {
+    // Initialize Google Analytics, etc.
+  }
+}
+```
+
+### With localStorage persistence
+
+```typescript
+import { Component, signal } from '@angular/core';
+import { CookiesComponent } from './core/layout/cookies.component';
+
+type CookieConsent = 'essentials' | 'all' | 'none' | null;
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [CookiesComponent],
+  template: `
+    @if (showDialog()) {
+      <lab-cookies 
+        (cancel)="handleCancel()"
+        (accept)="handleAccept($event)"
+      />
+    }
+  `
+})
+export class AppComponent {
+  private readonly CONSENT_KEY = 'cookieConsent';
+  showDialog = signal(this.getStoredConsent() === null);
+  
+  handleCancel(): void {
+    this.saveConsent('none');
+    this.showDialog.set(false);
+  }
+  
+  handleAccept(acceptance: 'essentials' | 'all'): void {
+    this.saveConsent(acceptance);
+    this.showDialog.set(false);
+    
+    if (acceptance === 'all') {
+      this.initializeTrackingServices();
+    }
+  }
+  
+  private getStoredConsent(): CookieConsent {
+    return localStorage.getItem(this.CONSENT_KEY) as CookieConsent;
+  }
+  
+  private saveConsent(consent: CookieConsent): void {
+    if (consent === null) return;
+    localStorage.setItem(this.CONSENT_KEY, consent);
+  }
+  
+  private initializeTrackingServices(): void {
+    // Google Analytics, Hotjar, etc.
+  }
+}
+```
+
+### Integration with consent management service
+
+For larger applications, create a dedicated service:
+
+```typescript
+import { Injectable, signal } from '@angular/core';
+
+type ConsentLevel = 'none' | 'essentials' | 'all';
+
+@Injectable({ providedIn: 'root' })
+export class CookieConsentService {
+  private consentLevel = signal<ConsentLevel>('none');
+  
+  get consent() {
+    return this.consentLevel.asReadonly();
+  }
+  
+  get hasConsented(): boolean {
+    return this.consentLevel() !== 'none';
+  }
+  
+  get canUseAnalytics(): boolean {
+    return this.consentLevel() === 'all';
+  }
+  
+  setConsent(level: ConsentLevel): void {
+    this.consentLevel.set(level);
+    localStorage.setItem('cookieConsent', level);
+    
+    if (level === 'all') {
+      this.enableAnalytics();
+    }
+  }
+  
+  loadStoredConsent(): void {
+    const stored = localStorage.getItem('cookieConsent') as ConsentLevel;
+    if (stored) {
+      this.consentLevel.set(stored);
+    }
+  }
+  
+  private enableAnalytics(): void {
+    // Analytics initialization
+  }
+}
+```
+
+Then use it in your component:
+
+```typescript
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [CookiesComponent],
+  template: `
+    @if (!consentService.hasConsented) {
+      <lab-cookies 
+        (cancel)="consentService.setConsent('none')"
+        (accept)="consentService.setConsent($event)"
+      />
+    }
+  `
+})
+export class AppComponent {
+  consentService = inject(CookieConsentService);
+  
+  constructor() {
+    this.consentService.loadStoredConsent();
+  }
+}
+```
+
+## Dialog content
+
+The component displays:
+
+1. **Header**: "We use cookies" with explanation
+2. **Body**: GDPR compliance message
+3. **Footer**: Three action buttons
+   - **Cancel** - Reject all cookies (outline style)
+   - **Accept only essentials** - Essential cookies only (secondary outline)
+   - **Accept all** - All cookies including tracking (primary outline)
+
+## GDPR compliance
+
+The component helps you comply with GDPR by:
+
+- ✅ Obtaining explicit consent before setting non-essential cookies
+- ✅ Providing granular control (essential vs all)
+- ✅ Allowing users to reject cookies
+- ✅ Clearly explaining what consent means
+
+<Warning>
+You must respect the user's choice. If they select "Cancel" or "Accept only essentials", do not enable analytics, tracking, or other non-essential cookies.
+</Warning>
+
+## Modern Angular features
+
+- **Standalone component** - No NgModule required
+- **OnPush change detection** - Optimized performance
+- **Output functions** - Type-safe event emitters with `output<T>()`
+- **OutputEmitterRef** - Modern output API
+
+## Customization
+
+To customize the dialog appearance, modify the template or add your own styles. The component uses semantic HTML and relies on your application's global styles.
+
+## Related resources
+
+- [GDPR compliance guide](https://gdpr.eu/cookies/)
+- [Modern Angular outputs documentation](https://angular.dev/guide/components/outputs)

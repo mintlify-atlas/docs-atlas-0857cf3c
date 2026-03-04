@@ -1,0 +1,143 @@
+---
+title: Error handler
+description: Global error handler that displays errors as user notifications
+---
+
+## Overview
+
+The archetype includes a custom global error handler that catches all unhandled errors and displays them to users as notifications. This provides a consistent error experience across your application.
+
+<Note>
+The error handler integrates with the `NotificationsStore` to display error messages in the UI.
+</Note>
+
+## Provider function
+
+```typescript src/app/core/layout/error.service.ts
+export function provideErrorHandler(): EnvironmentProviders
+```
+
+## Setup
+
+Add the error handler provider to your application configuration:
+
+```typescript src/app/app.config.ts
+import { ApplicationConfig } from '@angular/core';
+import { provideErrorHandler } from './core/layout/error.service';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    // ... other providers
+    provideErrorHandler(),
+  ]
+};
+```
+
+## How it works
+
+The `ErrorService` extends Angular's built-in `ErrorHandler` and:
+
+1. **Catches all unhandled errors** - Both HTTP errors and JavaScript exceptions
+2. **Creates user-friendly notifications** - Converts errors to notification objects
+3. **Displays via NotificationsStore** - Adds notifications to the global store
+4. **Preserves default behavior** - Still logs errors to console via `super.handleError()`
+
+## Error handling flow
+
+```typescript
+try {
+  // Your code
+  throw new Error('Something went wrong');
+} catch (error) {
+  // ErrorService automatically catches this
+  // 1. Creates notification: { message: 'Something went wrong', type: 'error' }
+  // 2. Adds to NotificationsStore
+  // 3. User sees error in notification UI
+  // 4. Error is still logged to console
+}
+```
+
+## HTTP error handling
+
+HTTP errors are automatically formatted with their error message:
+
+```typescript
+// When an HTTP request fails
+this.http.get('/api/users').subscribe({
+  error: (error: HttpErrorResponse) => {
+    // ErrorService catches this automatically
+    // Notification message will be: error.message
+    // Example: "Http failure response for /api/users: 404 Not Found"
+  }
+});
+```
+
+<Info>
+For HTTP errors, consider using the [authInterceptor](/api/auth-interceptor) which provides more specific error handling for authentication failures.
+</Info>
+
+## Zone.js integration
+
+The error handler runs outside Angular's zone, so it uses `NgZone.run()` to ensure change detection is triggered when adding notifications:
+
+```typescript
+this.#zone.run(() => {
+  this.#notificationsStore.addNotification(notification);
+});
+```
+
+This ensures the UI updates immediately when an error occurs.
+
+## Implementation
+
+<Accordion title="View complete source code">
+
+```typescript src/app/core/layout/error.service.ts
+import { HttpErrorResponse } from '@angular/common/http';
+import { EnvironmentProviders, ErrorHandler, NgZone, inject, makeEnvironmentProviders } from '@angular/core';
+import { Notification } from '@domain/notification.type';
+import { NotificationsStore } from '@services/state/notifications.store';
+
+class ErrorService extends ErrorHandler {
+  #notificationsStore: NotificationsStore = inject(NotificationsStore);
+  #zone = inject(NgZone);
+
+  override handleError(error: any): void {
+    const notification: Notification = { message: 'An error occurred', type: 'error' };
+    if (error instanceof HttpErrorResponse) {
+      notification.message = error.message;
+    } else {
+      notification.message = error.toString();
+    }
+    // Run the notification in the zone so it triggers change detection
+    this.#zone.run(() => {
+      this.#notificationsStore.addNotification(notification);
+    });
+    // Allow the default Angular error handler to run
+    super.handleError(error);
+  }
+}
+
+export function provideErrorHandler(): EnvironmentProviders {
+  return makeEnvironmentProviders([{ provide: ErrorHandler, useClass: ErrorService }]);
+}
+```
+
+</Accordion>
+
+## Custom error messages
+
+To provide custom error messages, throw errors with descriptive messages:
+
+```typescript
+if (!user) {
+  throw new Error('User not found. Please check the user ID and try again.');
+}
+```
+
+The error message will be displayed directly to the user.
+
+## Related APIs
+
+- [NotificationsStore](/api/notifications-store) - Manages the notification state
+- [authInterceptor](/api/auth-interceptor) - HTTP interceptor with specific error handling
