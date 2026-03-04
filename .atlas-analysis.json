@@ -1,0 +1,99 @@
+{
+  "projectType": "frontend",
+  "projectName": "Angular 18 Archetype",
+  "projectDescription": "An Angular 18 starter template with i18n support, modular architecture, and signal-based state management",
+  "theme": "linden",
+  "primaryColor": "#7c7c7c",
+  "lightColor": "#050505",
+  "darkColor": "#cbcbcb",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/folder-structure",
+              "architecture/core-layer",
+              "architecture/shared-layer"
+            ]
+          },
+          {
+            "group": "Features",
+            "pages": [
+              "features/internationalization",
+              "features/authentication",
+              "features/state-management",
+              "features/routing"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/adding-translations",
+              "guides/creating-components",
+              "guides/state-stores",
+              "guides/guards-interceptors"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Services",
+            "pages": [
+              "api/language-switch-service",
+              "api/auth-store",
+              "api/notifications-store",
+              "api/local-repository"
+            ]
+          },
+          {
+            "group": "Guards & Interceptors",
+            "pages": [
+              "api/auth-guard",
+              "api/auth-interceptor"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "api/app-config",
+              "api/translation-config",
+              "api/environment"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "i18n translations with @ngx-translate",
+    "Modular folder architecture (core/shared/config)",
+    "Signal-based state management",
+    "Authentication system with guards and interceptors",
+    "Language switching with localStorage persistence",
+    "Notification system"
+  ],
+  "publicApiSurface": [
+    "LanguageSwitchService",
+    "AuthStore",
+    "NotificationsStore",
+    "LocalRepository",
+    "authGuard",
+    "authInterceptor",
+    "provideTranslation",
+    "initializeTranslation"
+  ]
+}
