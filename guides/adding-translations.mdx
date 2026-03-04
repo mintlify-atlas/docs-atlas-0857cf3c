@@ -1,0 +1,220 @@
+---
+title: Adding translations
+description: Learn how to add new languages and translation keys to your Angular 18 application using ngx-translate
+---
+
+This guide explains how to work with translations in the Angular 18 Archetype using ngx-translate.
+
+## Translation system overview
+
+The project uses `@ngx-translate/core` and `@ngx-translate/http-loader` to manage translations. Translation files are stored in JSON format at `src/assets/i18n/`.
+
+Configuration is handled in:
+- `src/app/config/httpLoaderFactory.ts:8` - HTTP loader factory
+- `src/app/config/httpLoaderFactory.ts:28` - Language initialization
+- `src/app/core/language-switch/language-switch.service.ts` - Language switching logic
+
+## Adding a new language
+
+<Steps>
+  <Step title="Create the translation file">
+    Create a new JSON file in `src/assets/i18n/` with the language code as the filename:
+
+    ```bash
+    touch src/assets/i18n/fr.json
+    ```
+
+    Add your translations in JSON format:
+
+    ```json src/assets/i18n/fr.json
+    {
+      "greeting": "Bonjour le monde! :)"
+    }
+    ```
+  </Step>
+
+  <Step title="Register the language">
+    Open `src/app/core/language-switch/language-switch.service.ts` and add the new language to the `availableLanguages` array:
+
+    ```typescript src/app/core/language-switch/language-switch.service.ts
+    export class LanguageSwitchService {
+      public static readonly availableLanguages: string[] = ['en', 'es', 'fr'];
+      // ...
+    }
+    ```
+
+    <Note>
+      The first language in the array is used as the default language.
+    </Note>
+  </Step>
+
+  <Step title="Add language switching UI (optional)">
+    Update your language switcher component to include the new language:
+
+    ```typescript
+    @Component({
+      standalone: true,
+      selector: 'app-navbar',
+      template: `
+        <button (click)="changeLang('en')">English</button>
+        <button (click)="changeLang('es')">Spanish</button>
+        <button (click)="changeLang('fr')">French</button>
+      `
+    })
+    export class NavbarComponent {
+      private languageSwitchService = inject(LanguageSwitchService);
+
+      changeLang(lang: string) {
+        this.languageSwitchService.setLanguage(lang);
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+## Adding new translation keys
+
+<Steps>
+  <Step title="Add keys to all language files">
+    Add the same key to each language file with the appropriate translation:
+
+    <CodeGroup>
+    ```json src/assets/i18n/en.json
+    {
+      "greeting": "Hello World! :)",
+      "welcome": "Welcome to our application",
+      "user": {
+        "profile": "User Profile",
+        "settings": "Settings"
+      }
+    }
+    ```
+
+    ```json src/assets/i18n/es.json
+    {
+      "greeting": "Hola Mundo! :)",
+      "welcome": "Bienvenido a nuestra aplicación",
+      "user": {
+        "profile": "Perfil de Usuario",
+        "settings": "Configuración"
+      }
+    }
+    ```
+    </CodeGroup>
+
+    <Warning>
+      Make sure to add the same keys to all language files to avoid missing translations.
+    </Warning>
+  </Step>
+
+  <Step title="Use the translation keys">
+    You can now use these keys in your components (see below).
+  </Step>
+</Steps>
+
+## Using translations in components
+
+### In templates
+
+Import `TranslateModule` and use the `translate` pipe:
+
+```typescript
+import { Component } from '@angular/core';
+import { TranslateModule } from '@ngx-translate/core';
+
+@Component({
+  selector: 'app-example',
+  standalone: true,
+  imports: [TranslateModule],
+  template: `
+    <h1>{{ 'greeting' | translate }}</h1>
+    <p>{{ 'welcome' | translate }}</p>
+    <p>{{ 'user.profile' | translate }}</p>
+  `
+})
+export class ExampleComponent {}
+```
+
+### In component code
+
+Inject `TranslateService` to use translations programmatically:
+
+```typescript
+import { Component, inject } from '@angular/core';
+import { TranslateService } from '@ngx-translate/core';
+
+@Component({
+  selector: 'app-example',
+  standalone: true,
+  template: `<h1>{{ title }}</h1>`
+})
+export class ExampleComponent {
+  private translate = inject(TranslateService);
+  title = '';
+
+  ngOnInit() {
+    this.title = this.translate.instant('greeting');
+    
+    // Or subscribe to get updates when language changes
+    this.translate.get('welcome').subscribe((text: string) => {
+      console.log(text);
+    });
+  }
+}
+```
+
+## Switching languages
+
+The `LanguageSwitchService` provides methods to manage the current language:
+
+```typescript
+import { inject } from '@angular/core';
+import { LanguageSwitchService } from '@core/language-switch/language-switch.service';
+
+export class SomeComponent {
+  private languageService = inject(LanguageSwitchService);
+
+  changeToSpanish() {
+    this.languageService.setLanguage('es');
+  }
+
+  getCurrentLang() {
+    return this.languageService.getCurrentLanguage();
+  }
+}
+```
+
+<Note>
+  The selected language is automatically persisted to `localStorage` and restored on app initialization.
+</Note>
+
+## Translation file structure
+
+### Flat structure
+
+```json
+{
+  "home": "Home",
+  "about": "About",
+  "contact": "Contact"
+}
+```
+
+### Nested structure (recommended)
+
+```json
+{
+  "navigation": {
+    "home": "Home",
+    "about": "About",
+    "contact": "Contact"
+  },
+  "auth": {
+    "login": "Log In",
+    "logout": "Log Out",
+    "register": "Register"
+  }
+}
+```
+
+Access nested keys using dot notation: `{{ 'navigation.home' | translate }}`

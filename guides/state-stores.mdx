@@ -1,0 +1,315 @@
+---
+title: State stores
+description: Learn how to create and use signal-based state stores for managing application state in Angular 18
+---
+
+This guide explains how to create signal-based stores following the patterns established in the Angular 18 Archetype.
+
+## What are signal stores?
+
+Signal stores are injectable services that use Angular signals to manage application state. They provide:
+
+- **Reactive state management** using signals
+- **Type-safe** state access
+- **Computed values** derived from state
+- **Optional persistence** with LocalRepository
+- **Simple API** without external dependencies
+
+<Note>
+  This archetype uses native Angular signals instead of external state management libraries like NgRx or Akita.
+</Note>
+
+## AuthStore pattern
+
+The `AuthStore` at `src/app/shared/services/state/auth.store.ts` demonstrates the recommended pattern:
+
+```typescript src/app/shared/services/state/auth.store.ts
+import { Injectable, Signal, WritableSignal, computed, inject, signal } from '@angular/core';
+import { User } from '@domain/user.type';
+import { NULL_USER_ACCESS_TOKEN, UserAccessToken } from '@domain/userAccessToken.type';
+import { LocalRepository } from '@services/utils/local.repository';
+
+/**
+ * Signal Store for the Authentication data
+ * @description The Authentication State is the User Access Token
+ */
+@Injectable({
+  providedIn: 'root',
+})
+export class AuthStore {
+  // Injected services
+  #localRepository: LocalRepository = inject(LocalRepository);
+
+  // Private state signal
+  #state: WritableSignal<UserAccessToken> = signal<UserAccessToken>(
+    this.#localRepository.load('userAccessToken', NULL_USER_ACCESS_TOKEN),
+  );
+
+  // Public computed signals (read-only)
+  userId: Signal<number> = computed(() => this.#state().user.id);
+  user: Signal<User> = computed(() => this.#state().user);
+  accessToken: Signal<string> = computed(() => this.#state().accessToken);
+  isAuthenticated: Signal<boolean> = computed(() => this.accessToken() !== '');
+  isAnonymous: Signal<boolean> = computed(() => this.accessToken() === '');
+
+  // Public method to update state
+  setState(userAccessToken: UserAccessToken): void {
+    this.#state.set(userAccessToken);
+    this.#localRepository.save('userAccessToken', userAccessToken);
+  }
+}
+```
+
+### Key architectural decisions:
+
+1. **Private writable signal** (`#state`) - Prevents external mutation
+2. **Public computed signals** - Read-only access to state and derived values
+3. **Public methods** - Controlled state updates only through methods
+4. **Persistence** - Automatic save/load with LocalRepository
+
+## Creating a simple store
+
+<Steps>
+  <Step title="Create the store file">
+    Create a new file in `src/app/shared/services/state/`:
+
+    ```bash
+    ng generate service shared/services/state/theme --skip-tests
+    ```
+  </Step>
+
+  <Step title="Define the store structure">
+    ```typescript src/app/shared/services/state/theme.store.ts
+    import { Injectable, Signal, WritableSignal, computed, signal } from '@angular/core';
+
+    type Theme = 'light' | 'dark';
+
+    @Injectable({
+      providedIn: 'root',
+    })
+    export class ThemeStore {
+      // Private state
+      #state: WritableSignal<Theme> = signal<Theme>('light');
+
+      // Public readonly signal
+      theme: Signal<Theme> = this.#state.asReadonly();
+
+      // Computed values
+      isDark: Signal<boolean> = computed(() => this.#state() === 'dark');
+      isLight: Signal<boolean> = computed(() => this.#state() === 'light');
+
+      // Public methods
+      setTheme(theme: Theme): void {
+        this.#state.set(theme);
+      }
+
+      toggleTheme(): void {
+        this.#state.update(current => current === 'light' ? 'dark' : 'light');
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Use the store in components">
+    ```typescript
+    import { Component, inject, Signal } from '@angular/core';
+    import { ThemeStore } from '@state/theme.store';
+
+    @Component({
+      selector: 'app-theme-toggle',
+      standalone: true,
+      template: `
+        <button (click)="toggleTheme()">
+          Current: {{ theme() }} - Switch to {{ isDark() ? 'light' : 'dark' }}
+        </button>
+      `
+    })
+    export class ThemeToggleComponent {
+      private themeStore = inject(ThemeStore);
+
+      theme: Signal<string> = this.themeStore.theme;
+      isDark: Signal<boolean> = this.themeStore.isDark;
+
+      toggleTheme(): void {
+        this.themeStore.toggleTheme();
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+## Creating a store with persistence
+
+Use `LocalRepository` to persist state to localStorage:
+
+```typescript src/app/shared/services/state/settings.store.ts
+import { Injectable, Signal, WritableSignal, inject, signal } from '@angular/core';
+import { LocalRepository } from '@services/utils/local.repository';
+
+interface Settings {
+  notifications: boolean;
+  language: string;
+  fontSize: number;
+}
+
+const DEFAULT_SETTINGS: Settings = {
+  notifications: true,
+  language: 'en',
+  fontSize: 16,
+};
+
+@Injectable({
+  providedIn: 'root',
+})
+export class SettingsStore {
+  #localRepository = inject(LocalRepository);
+
+  // Load initial state from localStorage
+  #state: WritableSignal<Settings> = signal<Settings>(
+    this.#localRepository.load('settings', DEFAULT_SETTINGS)
+  );
+
+  // Public readonly access
+  settings: Signal<Settings> = this.#state.asReadonly();
+
+  // Update and persist
+  updateSettings(settings: Partial<Settings>): void {
+    const newSettings = { ...this.#state(), ...settings };
+    this.#state.set(newSettings);
+    this.#localRepository.save('settings', newSettings);
+  }
+
+  resetSettings(): void {
+    this.#state.set(DEFAULT_SETTINGS);
+    this.#localRepository.save('settings', DEFAULT_SETTINGS);
+  }
+}
+```
+
+<Note>
+  `LocalRepository` handles SSR compatibility and JSON serialization automatically.
+</Note>
+
+## Creating a store with arrays
+
+The `NotificationsStore` at `src/app/shared/services/state/notifications.store.ts:14` shows how to manage array state:
+
+```typescript src/app/shared/services/state/notifications.store.ts
+import { Injectable, Signal, WritableSignal, computed, signal } from '@angular/core';
+import { Notification } from '@domain/notification.type';
+
+@Injectable({
+  providedIn: 'root',
+})
+export class NotificationsStore {
+  #state: WritableSignal<Notification[]> = signal<Notification[]>([]);
+
+  notifications: Signal<Notification[]> = this.#state.asReadonly();
+  count: Signal<number> = computed(() => this.#state().length);
+
+  addNotification(notification: Notification): void {
+    this.#state.update((current) => [...current, notification]);
+  }
+
+  clearNotifications(): void {
+    this.#state.set([]);
+  }
+
+  removeNotification(id: string): void {
+    this.#state.update((current) => 
+      current.filter(n => n.id !== id)
+    );
+  }
+}
+```
+
+### Array update patterns:
+
+```typescript
+// Add item
+this.#state.update(items => [...items, newItem]);
+
+// Remove item
+this.#state.update(items => items.filter(item => item.id !== id));
+
+// Update item
+this.#state.update(items => 
+  items.map(item => item.id === id ? { ...item, ...updates } : item)
+);
+
+// Replace all
+this.#state.set(newItems);
+```
+
+<Warning>
+  Always create new array/object references when updating. Never mutate the existing state directly.
+</Warning>
+
+## Store composition
+
+Stores can depend on other stores:
+
+```typescript src/app/shared/services/state/user-preferences.store.ts
+import { Injectable, Signal, WritableSignal, computed, inject, signal } from '@angular/core';
+import { AuthStore } from '@state/auth.store';
+import { ThemeStore } from '@state/theme.store';
+
+@Injectable({
+  providedIn: 'root',
+})
+export class UserPreferencesStore {
+  private authStore = inject(AuthStore);
+  private themeStore = inject(ThemeStore);
+
+  // Compose signals from multiple stores
+  userTheme: Signal<string> = computed(() => {
+    const user = this.authStore.user();
+    const theme = this.themeStore.theme();
+    return `${user.name} prefers ${theme} theme`;
+  });
+}
+```
+
+## Testing stores
+
+Stores are easy to test because they're just services:
+
+```typescript
+import { TestBed } from '@angular/core/testing';
+import { ThemeStore } from './theme.store';
+
+describe('ThemeStore', () => {
+  let store: ThemeStore;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    store = TestBed.inject(ThemeStore);
+  });
+
+  it('should start with light theme', () => {
+    expect(store.theme()).toBe('light');
+  });
+
+  it('should toggle theme', () => {
+    store.toggleTheme();
+    expect(store.theme()).toBe('dark');
+    expect(store.isDark()).toBe(true);
+  });
+
+  it('should set specific theme', () => {
+    store.setTheme('dark');
+    expect(store.theme()).toBe('dark');
+  });
+});
+```
+
+## Best practices
+
+1. **Keep state private** - Use `#state` with private field syntax
+2. **Expose computed signals** - Provide read-only access via `computed()` or `asReadonly()`
+3. **Update via methods** - Never expose the writable signal directly
+4. **Use immutable updates** - Always create new references when updating objects/arrays
+5. **Persist when needed** - Use `LocalRepository` for data that should survive page refreshes
+6. **Compose stores** - Combine multiple stores using `computed()` for derived state
+7. **Provide defaults** - Always initialize signals with sensible default values
+8. **Document your store** - Add JSDoc comments explaining the state and methods

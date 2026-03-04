@@ -1,0 +1,390 @@
+---
+title: Core layer
+description: App-wide singleton services, guards, interceptors, and layout components
+---
+
+The core layer contains application-wide functionality that is loaded once when the application starts. This includes authentication, error handling, internationalization, and global layout components.
+
+<Info>
+  **Location:** `src/app/core/`
+  
+  All services in the core layer are singletons provided at the root level using `providedIn: 'root'` or configured in `app.config.ts`.
+</Info>
+
+## Core layer structure
+
+```
+src/app/core/
+├── language-switch/        # Internationalization
+│   ├── language-switch.component.ts
+│   └── language-switch.service.ts
+├── layout/                 # Layout and error handling
+│   ├── cookies.component.ts
+│   └── error.service.ts
+└── providers/              # Guards and interceptors
+    ├── auth.guard.ts
+    └── auth.interceptor.ts
+```
+
+## Language switching
+
+The application supports multiple languages using `@ngx-translate/core`.
+
+### LanguageSwitchService
+
+Manages language selection and persistence:
+
+```typescript src/app/core/language-switch/language-switch.service.ts
+import { inject, Injectable } from "@angular/core";
+import { TranslateService } from '@ngx-translate/core';
+
+@Injectable({
+    providedIn: 'root',
+})
+export class LanguageSwitchService {
+    public static readonly availableLanguages: string[] = ['en', 'es'];
+    public static readonly defaultLanguage: string = LanguageSwitchService.availableLanguages[0];
+
+    private translateService: TranslateService = inject(TranslateService);
+
+    public initLanguageFromLocalStorage(): void {
+        const languageFromStorage: string | null = localStorage.getItem('language');
+        if (
+            languageFromStorage &&
+            LanguageSwitchService.availableLanguages.includes(languageFromStorage)
+        ) {
+            this.setLanguage(languageFromStorage);
+        }
+    }
+
+    public setLanguage(languageId: string): void {
+        if (LanguageSwitchService.availableLanguages.includes(languageId)) {
+            this.translateService.use(languageId);
+            localStorage.setItem('language', languageId);
+        }
+    }
+}
+```
+
+**Key features:**
+- Stores language preference in localStorage
+- Validates language codes against allowed values
+- Integrates with ngx-translate
+
+### Language switch component
+
+Provides UI for language selection:
+
+```typescript src/app/core/language-switch/language-switch.component.ts
+import { Component, inject } from '@angular/core';
+import { TranslateService } from '@ngx-translate/core';
+import { LanguageSwitchService } from './language-switch.service';
+
+@Component({
+  standalone: true,
+  selector: 'app-navbar',
+  template: `
+    <button (click)="changeLang('en')">English</button>
+    <button (click)="changeLang('es')">Spanish</button>
+  `
+})
+export class NavbarComponent {
+  private languageSwitchService: LanguageSwitchService = inject(LanguageSwitchService);
+
+  constructor(private translate: TranslateService) {
+    translate.setDefaultLang('es');
+  }
+
+  changeLang(lang: string) {
+    this.languageSwitchService.setLanguage(lang);
+  }
+}
+```
+
+### Translation files
+
+Translation files are stored in `src/assets/i18n/`:
+
+```
+src/assets/i18n/
+├── en.json
+└── es.json
+```
+
+<Accordion title="Configuration in app.config.ts">
+```typescript src/app/app.config.ts
+import { APP_INITIALIZER, ApplicationConfig, importProvidersFrom } from '@angular/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { initializeTranslation, provideTranslation } from './config/httpLoaderFactory';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    importProvidersFrom([TranslateModule.forRoot(provideTranslation())]),
+    {
+      provide: APP_INITIALIZER,
+      useFactory: initializeTranslation,
+      multi: true,
+      deps: [TranslateService],
+    },
+  ]
+};
+```
+</Accordion>
+
+## Authentication providers
+
+### AuthGuard
+
+Protects routes that require authentication using functional guard pattern:
+
+```typescript src/app/core/providers/auth.guard.ts
+import { inject } from '@angular/core';
+import { CanActivateFn, Router } from '@angular/router';
+import { environment } from '@env/environment';
+import { AuthStore } from '@services/state/auth.store';
+
+/**
+ * Guard function to check if the user is authenticated.
+ * @returns True if the user is authenticated. Otherwise the URL tree to redirect to the login page.
+ */
+export const authGuard: CanActivateFn = () => {
+  if (environment.securityOpen) return true;
+  const authStore = inject(AuthStore);
+  if (authStore.isAuthenticated()) return true;
+  const router = inject(Router);
+  return router.createUrlTree(['/auth', 'login']);
+};
+```
+
+**Key features:**
+- Uses functional guard pattern (Angular 14+)
+- Checks authentication status via AuthStore
+- Supports security bypass for development
+- Redirects to login on failed authentication
+
+**Usage in routes:**
+
+```typescript
+import { Routes } from '@angular/router';
+import { authGuard } from './core/providers/auth.guard';
+
+export const routes: Routes = [
+  {
+    path: 'dashboard',
+    loadComponent: () => import('./dashboard/dashboard.component'),
+    canActivate: [authGuard]
+  }
+];
+```
+
+### AuthInterceptor
+
+Adds authentication headers and handles auth errors:
+
+```typescript src/app/core/providers/auth.interceptor.ts
+import { HttpHandlerFn, HttpInterceptorFn, HttpRequest } from '@angular/common/http';
+import { inject } from '@angular/core';
+import { Router } from '@angular/router';
+import { NULL_USER_ACCESS_TOKEN } from '@domain/userAccessToken.type';
+import { AuthStore } from '@services/state/auth.store';
+import { NotificationsStore } from '@services/state/notifications.store';
+import { catchError, throwError } from 'rxjs';
+
+const AUTH_ERROR_CODE = 401;
+
+/**
+ * Interceptor function to add the Authorization header to the request and handle 401 errors.
+ */
+export const authInterceptor: HttpInterceptorFn = (req: HttpRequest<unknown>, next: HttpHandlerFn) => {
+  const authStore: AuthStore = inject(AuthStore);
+  const notificationsStore: NotificationsStore = inject(NotificationsStore);
+  const router: Router = inject(Router);
+
+  // Get access token from AuthStore
+  const accessToken: string = authStore.accessToken();
+  
+  // Add the Authorization header to the request
+  const authorizationHeader: string = accessToken ? `Bearer ${accessToken}` : '';
+  req = req.clone({
+    setHeaders: {
+      Authorization: authorizationHeader,
+    },
+  });
+  
+  // Handle errors
+  return next(req).pipe(
+    catchError((error) => {
+      if (error.status === AUTH_ERROR_CODE) {
+        authStore.setState(NULL_USER_ACCESS_TOKEN);
+        router.navigate(['/auth', 'login']);
+      }
+      notificationsStore.addNotification({ message: error.message, type: 'error' });
+      return throwError(() => error);
+    }),
+  );
+};
+```
+
+**Key features:**
+- Uses functional interceptor pattern
+- Injects Bearer token automatically
+- Handles 401 errors by clearing auth state
+- Shows error notifications
+- Redirects to login on auth failure
+
+**Registration in app.config.ts:**
+
+```typescript
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { authInterceptor } from './core/providers/auth.interceptor';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideHttpClient(withInterceptors([authInterceptor])),
+  ]
+};
+```
+
+## Error handling
+
+### ErrorService
+
+Global error handler that displays errors as notifications:
+
+```typescript src/app/core/layout/error.service.ts
+import { HttpErrorResponse } from '@angular/common/http';
+import { ErrorHandler, NgZone, inject } from '@angular/core';
+import { Notification } from '@domain/notification.type';
+import { NotificationsStore } from '@services/state/notifications.store';
+
+/**
+ * Service to handle errors and show notifications.
+ * @extends ErrorHandler
+ */
+class ErrorService extends ErrorHandler {
+  #notificationsStore: NotificationsStore = inject(NotificationsStore);
+  #zone = inject(NgZone);
+
+  override handleError(error: any): void {
+    const notification: Notification = { message: 'An error occurred', type: 'error' };
+    
+    if (error instanceof HttpErrorResponse) {
+      notification.message = error.message;
+    } else {
+      notification.message = error.toString();
+    }
+    
+    // Run in zone to trigger change detection
+    this.#zone.run(() => {
+      this.#notificationsStore.addNotification(notification);
+    });
+    
+    // Call default handler
+    super.handleError(error);
+  }
+}
+
+export function provideErrorHandler(): EnvironmentProviders {
+  return makeEnvironmentProviders([{ provide: ErrorHandler, useClass: ErrorService }]);
+}
+```
+
+**Key features:**
+- Extends Angular's ErrorHandler
+- Integrates with NotificationsStore
+- Handles both HTTP and application errors
+- Runs in NgZone for proper change detection
+- Uses provider function for IoC
+
+<Warning>
+  Error handlers run outside Angular's zone by default. Always use `NgZone.run()` when updating state or triggering UI changes.
+</Warning>
+
+## Layout components
+
+### CookiesComponent
+
+Handles cookie consent and privacy notifications (from `src/app/core/layout/cookies.component.ts`).
+
+<Info>
+  Layout components in the core layer are typically used in the root `app.component.ts` and displayed across all routes.
+</Info>
+
+## Adding new core functionality
+
+Follow these steps when adding new app-wide functionality:
+
+<Steps>
+  <Step title="Determine the category">
+    Decide which core subdirectory fits your functionality:
+    - **providers/** - Guards, interceptors, resolvers
+    - **layout/** - Shell components, error handlers
+    - **language-switch/** - i18n related functionality
+  </Step>
+  
+  <Step title="Create the service or provider">
+    ```bash
+    ng generate service core/providers/my-new-guard
+    ```
+    
+    Use `providedIn: 'root'` for services:
+    ```typescript
+    @Injectable({ providedIn: 'root' })
+    export class MyService { }
+    ```
+  </Step>
+  
+  <Step title="Register in app.config.ts">
+    For guards, interceptors, and error handlers:
+    ```typescript
+    export const appConfig: ApplicationConfig = {
+      providers: [
+        provideHttpClient(withInterceptors([myInterceptor])),
+        provideErrorHandler(),
+      ]
+    };
+    ```
+  </Step>
+  
+  <Step title="Use in routes or components">
+    Apply guards to routes:
+    ```typescript
+    { path: 'admin', canActivate: [adminGuard], ... }
+    ```
+  </Step>
+</Steps>
+
+## Best practices
+
+<CardGroup cols={2}>
+  <Card title="Single responsibility" icon="bullseye">
+    Each service should have one clear purpose. Split complex logic into multiple services.
+  </Card>
+  
+  <Card title="Avoid side effects" icon="shield-halved">
+    Core services should be stateless when possible. Use stores (in shared layer) for state management.
+  </Card>
+  
+  <Card title="Use functional patterns" icon="function">
+    Prefer functional guards and interceptors over class-based ones for better tree-shaking.
+  </Card>
+  
+  <Card title="Document dependencies" icon="book">
+    Clearly document which stores or services your core functionality depends on.
+  </Card>
+</CardGroup>
+
+<Note>
+  The core layer should never import from the features layer. It can import from the shared layer for domain types and utilities.
+</Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Shared layer" icon="share-nodes" href="/architecture/shared-layer">
+    Learn about reusable components and state management
+  </Card>
+  <Card title="Folder structure" icon="folder-tree" href="/architecture/folder-structure">
+    Review the complete project structure
+  </Card>
+</CardGroup>

@@ -1,0 +1,185 @@
+---
+title: AuthStore
+description: Signal-based store for managing authentication state in Angular 18
+---
+
+The `AuthStore` is an Angular service that manages authentication state using Angular signals. It stores the user access token, user information, and provides computed properties for authentication status.
+
+## Overview
+
+This injectable service uses Angular's signal API to provide reactive authentication state management. The state is automatically persisted to localStorage and restored on application restart.
+
+**Source:** `src/app/shared/services/state/auth.store.ts`
+
+## Computed properties
+
+All properties are reactive signals that automatically update when the authentication state changes.
+
+### userId
+
+```typescript
+userId: Signal<number>
+```
+
+<ResponseField name="userId" type="Signal<number>" required>
+  Signal containing the current user's ID
+</ResponseField>
+
+### user
+
+```typescript
+user: Signal<User>
+```
+
+<ResponseField name="user" type="Signal<User>" required>
+  Signal containing the current user object with all user properties
+</ResponseField>
+
+### accessToken
+
+```typescript
+accessToken: Signal<string>
+```
+
+<ResponseField name="accessToken" type="Signal<string>" required>
+  Signal containing the current user's access token. Empty string if not authenticated.
+</ResponseField>
+
+### isAuthenticated
+
+```typescript
+isAuthenticated: Signal<boolean>
+```
+
+<ResponseField name="isAuthenticated" type="Signal<boolean>" required>
+  Signal that returns `true` if the user has an access token (authenticated), `false` otherwise
+</ResponseField>
+
+### isAnonymous
+
+```typescript
+isAnonymous: Signal<boolean>
+```
+
+<ResponseField name="isAnonymous" type="Signal<boolean>" required>
+  Signal that returns `true` if the user does not have an access token (anonymous), `false` otherwise
+</ResponseField>
+
+## Methods
+
+### setState()
+
+```typescript
+setState(userAccessToken: UserAccessToken): void
+```
+
+Saves the new authentication state and persists it to localStorage.
+
+<ParamField path="userAccessToken" type="UserAccessToken" required>
+  The new authentication state containing the user object and access token
+</ParamField>
+
+**Behavior:**
+- Updates the internal signal state
+- Automatically saves to localStorage using the `userAccessToken` key
+- Triggers all computed properties to update
+
+<ResponseField name="return" type="void">
+  No return value
+</ResponseField>
+
+## Usage example
+
+### Basic authentication flow
+
+```typescript
+import { Component, inject, Signal } from '@angular/core';
+import { AuthStore } from '@services/state/auth.store';
+import { UserAccessToken } from '@domain/userAccessToken.type';
+
+@Component({
+  selector: 'app-login',
+  template: `
+    @if (authStore.isAuthenticated()) {
+      <p>Welcome, User ID: {{ authStore.userId() }}</p>
+      <button (click)="logout()">Logout</button>
+    } @else {
+      <button (click)="login()">Login</button>
+    }
+  `
+})
+export class LoginComponent {
+  authStore = inject(AuthStore);
+
+  login() {
+    // After successful authentication
+    const userAccessToken: UserAccessToken = {
+      user: { id: 123, name: 'John Doe', email: 'john@example.com' },
+      accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+    };
+    
+    this.authStore.setState(userAccessToken);
+  }
+
+  logout() {
+    const nullToken: UserAccessToken = {
+      user: { id: 0, name: '', email: '' },
+      accessToken: ''
+    };
+    
+    this.authStore.setState(nullToken);
+  }
+}
+```
+
+### Using computed signals in templates
+
+```typescript
+import { Component, inject } from '@angular/core';
+import { AuthStore } from '@services/state/auth.store';
+
+@Component({
+  selector: 'app-header',
+  template: `
+    <header>
+      @if (authStore.isAuthenticated()) {
+        <span>{{ authStore.user().name }}</span>
+        <span>Token: {{ authStore.accessToken().substring(0, 10) }}...</span>
+      } @else {
+        <span>Anonymous User</span>
+      }
+    </header>
+  `
+})
+export class HeaderComponent {
+  authStore = inject(AuthStore);
+}
+```
+
+### Checking authentication status
+
+```typescript
+import { inject } from '@angular/core';
+import { Router } from '@angular/router';
+import { AuthStore } from '@services/state/auth.store';
+
+export const authGuard = () => {
+  const authStore = inject(AuthStore);
+  const router = inject(Router);
+
+  if (authStore.isAuthenticated()) {
+    return true;
+  }
+
+  return router.parseUrl('/login');
+};
+```
+
+## State persistence
+
+The authentication state is automatically:
+- Saved to localStorage when `setState()` is called
+- Restored from localStorage when the service is initialized
+- Stored under the key `userAccessToken`
+
+If no state exists in localStorage, the store initializes with `NULL_USER_ACCESS_TOKEN`.

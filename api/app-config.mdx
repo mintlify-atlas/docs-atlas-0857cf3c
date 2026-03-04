@@ -1,0 +1,115 @@
+---
+title: Application configuration
+description: Core Angular application configuration including routing, HTTP client, and translation setup
+---
+
+The `appConfig` object defines the root configuration for the Angular 18 application. It is exported from `src/app/app.config.ts` and used in `main.ts` to bootstrap the application.
+
+## Configuration structure
+
+The application configuration is defined as an `ApplicationConfig` object:
+
+```typescript
+import { APP_INITIALIZER, ApplicationConfig, importProvidersFrom, provideZoneChangeDetection } from '@angular/core';
+import { provideRouter } from '@angular/router';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { provideHttpClient } from '@angular/common/http';
+
+import { routes } from './app.routes';
+import { initializeTranslation, provideTranslation } from './config/httpLoaderFactory';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideZoneChangeDetection({ eventCoalescing: true }),
+    provideRouter(routes),
+    provideHttpClient(),
+    importProvidersFrom([TranslateModule.forRoot(provideTranslation())]),
+    {
+      provide: APP_INITIALIZER,
+      useFactory: initializeTranslation,
+      multi: true,
+      deps: [TranslateService],
+    },
+  ]
+};
+```
+
+## Providers
+
+The configuration includes the following providers:
+
+<ParamField path="provideZoneChangeDetection" type="function">
+  Configures Angular's zone change detection with event coalescing enabled for improved performance.
+  
+  **Options:**
+  - `eventCoalescing: true` - Coalesces multiple events into a single change detection cycle
+</ParamField>
+
+<ParamField path="provideRouter" type="function">
+  Sets up the Angular Router with the application's route configuration.
+  
+  **Parameters:**
+  - `routes` - Imported from `./app.routes.ts`, defines the application's routing structure
+</ParamField>
+
+<ParamField path="provideHttpClient" type="function">
+  Provides the Angular HTTP client for making HTTP requests throughout the application.
+</ParamField>
+
+<ParamField path="importProvidersFrom" type="function">
+  Imports providers from NgModule-based libraries into the standalone application.
+  
+  **Configuration:**
+  - `TranslateModule.forRoot(provideTranslation())` - Initializes the ngx-translate module with custom loader configuration
+</ParamField>
+
+<ParamField path="APP_INITIALIZER" type="provider">
+  Executes the translation initialization function before the application starts.
+  
+  **Configuration:**
+  - `provide: APP_INITIALIZER` - The Angular injection token
+  - `useFactory: initializeTranslation` - Factory function that sets up available languages and default language
+  - `multi: true` - Allows multiple app initializers
+  - `deps: [TranslateService]` - Injects the TranslateService dependency
+</ParamField>
+
+## How to modify
+
+To customize the application configuration:
+
+1. **Add new providers**: Add additional providers to the `providers` array
+
+```typescript
+export const appConfig: ApplicationConfig = {
+  providers: [
+    // ... existing providers
+    provideAnimations(),  // Add animations support
+    // Your custom providers
+  ]
+};
+```
+
+2. **Configure HTTP client**: Add interceptors or other HTTP configuration
+
+```typescript
+provideHttpClient(
+  withInterceptors([authInterceptor]),
+  withFetch()
+),
+```
+
+3. **Add app initializers**: Add additional initialization logic
+
+```typescript
+{
+  provide: APP_INITIALIZER,
+  useFactory: myInitFunction,
+  multi: true,
+  deps: [MyService],
+},
+```
+
+## Related
+
+- [Translation configuration](/api/translation-config) - Details on translation setup
+- [Environment configuration](/api/environment) - Environment-specific variables

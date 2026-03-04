@@ -1,0 +1,157 @@
+---
+title: authInterceptor
+description: HTTP interceptor that adds Authorization headers and handles authentication errors
+---
+
+## Overview
+
+The `authInterceptor` is a functional HTTP interceptor that automatically adds the Authorization header with a Bearer token to all outgoing HTTP requests. It also handles 401 authentication errors by clearing the auth state and redirecting to the login page.
+
+## Type signature
+
+```typescript
+export const authInterceptor: HttpInterceptorFn = (
+  req: HttpRequest<unknown>,
+  next: HttpHandlerFn
+) => Observable<HttpEvent<unknown>>
+```
+
+## Parameters
+
+<ParamField path="req" type="HttpRequest<unknown>" required>
+  The HTTP request to be intercepted
+</ParamField>
+
+<ParamField path="next" type="HttpHandlerFn" required>
+  The next handler in the interceptor chain
+</ParamField>
+
+## How it works
+
+### 1. Add Authorization header
+
+The interceptor retrieves the access token from `AuthStore` and adds it as a Bearer token:
+
+```typescript
+const accessToken: string = authStore.accessToken();
+const authorizationHeader: string = accessToken ? `Bearer ${accessToken}` : '';
+req = req.clone({
+  setHeaders: {
+    Authorization: authorizationHeader,
+  },
+});
+```
+
+### 2. Handle 401 errors
+
+When a 401 Unauthorized error occurs:
+- Clears the authentication state by setting `NULL_USER_ACCESS_TOKEN`
+- Navigates to the login page at `/auth/login`
+- Adds an error notification
+
+### 3. Error notifications
+
+All HTTP errors trigger a notification via `NotificationsStore` with the error message.
+
+## Integration
+
+The interceptor integrates with three core services:
+
+<ParamField path="AuthStore" type="service">
+  Provides the `accessToken()` signal and `setState()` method for managing authentication state
+</ParamField>
+
+<ParamField path="NotificationsStore" type="service">
+  Provides `addNotification()` to display error messages to users
+</ParamField>
+
+<ParamField path="Router" type="service">
+  Handles navigation to the login page when authentication fails
+</ParamField>
+
+## Usage
+
+Register the interceptor in your application configuration:
+
+```typescript
+import { ApplicationConfig } from '@angular/core';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { authInterceptor } from '@core/providers/auth.interceptor';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideHttpClient(
+      withInterceptors([authInterceptor])
+    )
+  ]
+};
+```
+
+## Source code
+
+```typescript
+import { HttpHandlerFn, HttpInterceptorFn, HttpRequest } from '@angular/common/http';
+import { inject } from '@angular/core';
+import { Router } from '@angular/router';
+import { NULL_USER_ACCESS_TOKEN } from '@domain/userAccessToken.type';
+import { AuthStore } from '@services/state/auth.store';
+import { NotificationsStore } from '@services/state/notifications.store';
+import { catchError, throwError } from 'rxjs';
+
+const AUTH_ERROR_CODE = 401;
+
+/**
+ * Interceptor function to add the Authorization header to the request and handle 401 errors.
+ * @param req The request to be intercepted
+ * @param next The next handler in the chain
+ * @returns The observable of HttpEvents to be passed to the next handler
+ */
+export const authInterceptor: HttpInterceptorFn = (req: HttpRequest<unknown>, next: HttpHandlerFn) => {
+  // * Injects division
+
+  /** The Auth Store to get the access token */
+  const authStore: AuthStore = inject(AuthStore);
+  /** The Notifications Store to add error notifications */
+  const notificationsStore: NotificationsStore = inject(NotificationsStore);
+  /** The Router to navigate to the login page */
+  const router: Router = inject(Router);
+
+  // * Function division
+
+  /** Get access token from AuthStore */
+  const accessToken: string = authStore.accessToken();
+  /** Create and Add the Authorization header to the request */
+  const authorizationHeader: string = accessToken ? `Bearer ${accessToken}` : '';
+  req = req.clone({
+    setHeaders: {
+      Authorization: authorizationHeader,
+    },
+  });
+  /** Send the cloned request and get into the pipeline of events to catch errors */
+  return next(req).pipe(
+    catchError((error) => {
+      if (error.status === AUTH_ERROR_CODE) {
+        authStore.setState(NULL_USER_ACCESS_TOKEN);
+        router.navigate(['/auth', 'login']);
+      }
+      notificationsStore.addNotification({ message: error.message, type: 'error' });
+      return throwError(() => error);
+    }),
+  );
+};
+```
+
+## Error handling
+
+The interceptor handles errors in the following way:
+
+1. **401 Unauthorized**: Clears auth state, redirects to login
+2. **All errors**: Adds a notification with the error message
+3. **Re-throws**: The error is re-thrown for further handling downstream
+
+## Dependencies
+
+- `AuthStore` - Authentication state management
+- `NotificationsStore` - User notification system
+- `Router` - Navigation management
+- `NULL_USER_ACCESS_TOKEN` - Null object pattern for clearing auth state

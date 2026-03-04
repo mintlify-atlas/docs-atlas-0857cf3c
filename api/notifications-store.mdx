@@ -1,0 +1,228 @@
+---
+title: NotificationsStore
+description: Signal-based store for managing application notifications
+---
+
+The `NotificationsStore` is an Angular service that manages a list of notifications using Angular signals. It provides reactive properties and methods to add and clear notifications.
+
+## Overview
+
+This injectable service uses Angular's signal API to provide reactive notification management. The store maintains an internal list of notifications and exposes computed properties for reactive updates.
+
+**Source:** `src/app/shared/services/state/notifications.store.ts`
+
+## Computed properties
+
+### notifications
+
+```typescript
+notifications: Signal<Notification[]>
+```
+
+A readonly signal containing the current list of notifications.
+
+<ResponseField name="notifications" type="Signal<Notification[]>" required>
+  Readonly signal array of all notifications in the store
+</ResponseField>
+
+### count
+
+```typescript
+count: Signal<number>
+```
+
+A computed signal that returns the number of notifications in the store.
+
+<ResponseField name="count" type="Signal<number>" required>
+  Computed signal with the total count of notifications
+</ResponseField>
+
+## Methods
+
+### addNotification()
+
+```typescript
+addNotification(notification: Notification): void
+```
+
+Adds a new notification to the list.
+
+<ParamField path="notification" type="Notification" required>
+  The notification object to add to the store
+</ParamField>
+
+**Behavior:**
+- Appends the notification to the end of the existing list
+- Triggers reactivity for all computed properties
+- Does not check for duplicates
+
+<ResponseField name="return" type="void">
+  No return value
+</ResponseField>
+
+### clearNotifications()
+
+```typescript
+clearNotifications(): void
+```
+
+Removes all notifications from the store.
+
+**Behavior:**
+- Sets the internal state to an empty array
+- Resets the count to 0
+- Triggers reactivity for all computed properties
+
+<ResponseField name="return" type="void">
+  No return value
+</ResponseField>
+
+## Usage example
+
+### Basic notification management
+
+```typescript
+import { Component, inject } from '@angular/core';
+import { NotificationsStore } from '@services/state/notifications.store';
+import { Notification } from '@domain/notification.type';
+
+@Component({
+  selector: 'app-notifications',
+  template: `
+    <div class="notifications-panel">
+      <h3>Notifications ({{ notificationsStore.count() }})</h3>
+      
+      @for (notification of notificationsStore.notifications(); track notification.id) {
+        <div class="notification" [class]="notification.type">
+          <p>{{ notification.message }}</p>
+        </div>
+      }
+      
+      @if (notificationsStore.count() > 0) {
+        <button (click)="clearAll()">Clear All</button>
+      }
+    </div>
+  `
+})
+export class NotificationsComponent {
+  notificationsStore = inject(NotificationsStore);
+
+  clearAll() {
+    this.notificationsStore.clearNotifications();
+  }
+}
+```
+
+### Adding notifications
+
+```typescript
+import { Component, inject } from '@angular/core';
+import { NotificationsStore } from '@services/state/notifications.store';
+import { Notification } from '@domain/notification.type';
+
+@Component({
+  selector: 'app-user-actions',
+  template: `
+    <button (click)="saveData()">Save</button>
+    <button (click)="deleteData()">Delete</button>
+  `
+})
+export class UserActionsComponent {
+  notificationsStore = inject(NotificationsStore);
+
+  saveData() {
+    // Perform save operation
+    // ...
+    
+    // Add success notification
+    const notification: Notification = {
+      id: Date.now(),
+      message: 'Data saved successfully',
+      type: 'success',
+      timestamp: new Date()
+    };
+    
+    this.notificationsStore.addNotification(notification);
+  }
+
+  deleteData() {
+    // Perform delete operation
+    // ...
+    
+    // Add warning notification
+    const notification: Notification = {
+      id: Date.now(),
+      message: 'Data deleted',
+      type: 'warning',
+      timestamp: new Date()
+    };
+    
+    this.notificationsStore.addNotification(notification);
+  }
+}
+```
+
+### Notification badge
+
+```typescript
+import { Component, inject } from '@angular/core';
+import { NotificationsStore } from '@services/state/notifications.store';
+
+@Component({
+  selector: 'app-header',
+  template: `
+    <header>
+      <button class="notification-bell">
+        <span class="icon">🔔</span>
+        @if (notificationsStore.count() > 0) {
+          <span class="badge">{{ notificationsStore.count() }}</span>
+        }
+      </button>
+    </header>
+  `
+})
+export class HeaderComponent {
+  notificationsStore = inject(NotificationsStore);
+}
+```
+
+### Error handling with notifications
+
+```typescript
+import { inject } from '@angular/core';
+import { HttpInterceptorFn } from '@angular/common/http';
+import { catchError } from 'rxjs/operators';
+import { throwError } from 'rxjs';
+import { NotificationsStore } from '@services/state/notifications.store';
+
+export const errorInterceptor: HttpInterceptorFn = (req, next) => {
+  const notificationsStore = inject(NotificationsStore);
+
+  return next(req).pipe(
+    catchError((error) => {
+      // Add error notification
+      notificationsStore.addNotification({
+        id: Date.now(),
+        message: error.message || 'An error occurred',
+        type: 'error',
+        timestamp: new Date()
+      });
+
+      return throwError(() => error);
+    })
+  );
+};
+```
+
+## Notification type
+
+The `Notification` type should be defined in your domain types. A typical structure might include:
+
+```typescript
+export interface Notification {
+  id: number;
+  message: string;
+  type: 'success' | 'error' | 'warning' | 'info';
+  timestamp: Date;
+}
+```

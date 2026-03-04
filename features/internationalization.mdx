@@ -1,0 +1,220 @@
+---
+title: Internationalization
+description: Multi-language support with @ngx-translate and localStorage persistence
+---
+
+The Angular 18 Archetype includes a complete internationalization (i18n) solution using **@ngx-translate/core**. The system supports multiple languages with automatic localStorage persistence and easy template integration.
+
+## Available languages
+
+The application currently supports:
+
+- **English (en)** - Default language
+- **Spanish (es)**
+
+<Note>
+  Languages are defined in `LanguageSwitchService.availableLanguages` at src/app/core/language-switch/language-switch.service.ts:8
+</Note>
+
+## How it works
+
+<Steps>
+  <Step title="Translation files loaded">
+    Translation JSON files are loaded from `./assets/i18n/` directory using `TranslateHttpLoader`.
+    
+    ```typescript
+    // src/app/config/httpLoaderFactory.ts
+    const httpLoaderFactory = (http: HttpClient) =>
+      new TranslateHttpLoader(http, './assets/i18n/', '.json');
+    ```
+  </Step>
+
+  <Step title="Language initialized on app startup">
+    The application uses `APP_INITIALIZER` to set up translations before the app starts:
+    
+    ```typescript
+    // src/app/config/httpLoaderFactory.ts
+    export function initializeTranslation(): () => void {
+      const translateService = inject(TranslateService);
+      const languageSwitchService = inject(LanguageSwitchService);
+      return () => {
+        translateService.addLangs(LanguageSwitchService.availableLanguages);
+        translateService.setDefaultLang(LanguageSwitchService.defaultLanguage);
+        languageSwitchService.initLanguageFromLocalStorage();
+      };
+    }
+    ```
+  </Step>
+
+  <Step title="Language restored from localStorage">
+    Previously selected language is automatically restored from localStorage:
+    
+    ```typescript
+    // src/app/core/language-switch/language-switch.service.ts
+    public initLanguageFromLocalStorage(): void {
+      const languageFromStorage = localStorage.getItem('language');
+      if (
+        languageFromStorage &&
+        LanguageSwitchService.availableLanguages.includes(languageFromStorage)
+      ) {
+        this.setLanguage(languageFromStorage);
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+## Language switching service
+
+The `LanguageSwitchService` manages all language operations:
+
+```typescript
+// src/app/core/language-switch/language-switch.service.ts
+import { inject, Injectable } from "@angular/core";
+import { TranslateService } from '@ngx-translate/core';
+
+@Injectable({
+  providedIn: 'root',
+})
+export class LanguageSwitchService {
+  public static readonly availableLanguages: string[] = ['en', 'es'];
+  public static readonly defaultLanguage: string = LanguageSwitchService.availableLanguages[0];
+
+  private translateService: TranslateService = inject(TranslateService);
+
+  public setLanguage(languageId: string): void {
+    if (LanguageSwitchService.availableLanguages.includes(languageId)) {
+      this.translateService.use(languageId);
+      localStorage.setItem('language', languageId);
+    }
+  }
+
+  public getCurrentLanguage(): string {
+    if (
+      this.translateService.currentLang &&
+      this.translateService.currentLang !== LanguageSwitchService.defaultLanguage
+    ) {
+      return this.translateService.currentLang;
+    }
+    return LanguageSwitchService.defaultLanguage;
+  }
+}
+```
+
+### Key methods
+
+- **`setLanguage(languageId: string)`** - Changes the active language and persists to localStorage
+- **`getCurrentLanguage()`** - Returns the currently active language
+- **`initLanguageFromLocalStorage()`** - Restores language preference on app initialization
+
+## Using translations in templates
+
+The `translate` pipe makes it easy to display translated text in your templates:
+
+```html
+<!-- Basic usage -->
+<h1>{{ 'greeting' | translate }}</h1>
+
+<!-- With parameters -->
+<p>{{ 'welcome.message' | translate: { name: userName } }}</p>
+```
+
+### Translation files
+
+<CodeGroup>
+```json en.json
+{
+  "greeting": "Hello World! :)"
+}
+```
+
+```json es.json
+{
+  "greeting": "Hola Mundo! :)"
+}
+```
+</CodeGroup>
+
+## Implementing a language switcher
+
+Here's a real example from the codebase showing how to create language switching buttons:
+
+```typescript
+// src/app/core/language-switch/language-switch.component.ts
+import { Component, inject } from '@angular/core';
+import { TranslateService } from '@ngx-translate/core';
+import { LanguageSwitchService } from './language-switch.service';
+
+@Component({
+  standalone: true,
+  selector: 'app-navbar',
+  template: `
+    <button (click)="changeLang('en')">English</button>
+    <button (click)="changeLang('es')">Spanish</button>
+  `
+})
+export class NavbarComponent {
+  private languageSwitchService = inject(LanguageSwitchService);
+
+  constructor(private translate: TranslateService) {
+    translate.setDefaultLang('es');
+  }
+
+  changeLang(lang: string) {
+    this.languageSwitchService.setLanguage(lang);
+  }
+}
+```
+
+## Adding a new language
+
+<Steps>
+  <Step title="Create translation file">
+    Add a new JSON file to `src/assets/i18n/` (e.g., `fr.json` for French)
+  </Step>
+
+  <Step title="Update available languages">
+    Add the language code to the `availableLanguages` array:
+    
+    ```typescript
+    // src/app/core/language-switch/language-switch.service.ts
+    public static readonly availableLanguages: string[] = ['en', 'es', 'fr'];
+    ```
+  </Step>
+
+  <Step title="Add translation keys">
+    Populate your new translation file with all required keys from the existing language files
+  </Step>
+</Steps>
+
+## Configuration
+
+The translation system is configured in `app.config.ts`:
+
+```typescript
+// src/app/app.config.ts
+import { APP_INITIALIZER, ApplicationConfig, importProvidersFrom } from '@angular/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { initializeTranslation, provideTranslation } from './config/httpLoaderFactory';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    importProvidersFrom([TranslateModule.forRoot(provideTranslation())]),
+    {
+      provide: APP_INITIALIZER,
+      useFactory: initializeTranslation,
+      multi: true,
+      deps: [TranslateService],
+    },
+  ]
+};
+```
+
+## Best practices
+
+<Note>
+  - Always use meaningful translation keys (e.g., `user.profile.title` instead of `title1`)
+  - Keep translation files synchronized across all languages
+  - Use the `translate` pipe in templates instead of programmatic translation when possible
+  - Validate that all language codes exist before calling `setLanguage()`
+</Note>

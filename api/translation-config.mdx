@@ -1,0 +1,145 @@
+---
+title: Translation configuration
+description: Configure ngx-translate with HTTP loader for internationalization support
+---
+
+The translation configuration is defined in `src/app/config/httpLoaderFactory.ts` and provides functions to set up ngx-translate with HTTP-based translation file loading.
+
+## Functions
+
+### provideTranslation()
+
+Configures the ngx-translate loader to load translation files from the file system.
+
+```typescript
+export const provideTranslation: () => {
+  loader: {
+    provide: typeof TranslateLoader;
+    useFactory: (http: HttpClient) => TranslateHttpLoader;
+    deps: [typeof HttpClient];
+  };
+} = () => ({
+  loader: {
+    provide: TranslateLoader,
+    useFactory: httpLoaderFactory,
+    deps: [HttpClient],
+  },
+});
+```
+
+<ParamField path="loader.provide" type="TranslateLoader">
+  The injection token for the translate loader.
+</ParamField>
+
+<ParamField path="loader.useFactory" type="function">
+  Factory function that creates the TranslateHttpLoader instance using `httpLoaderFactory`.
+</ParamField>
+
+<ParamField path="loader.deps" type="HttpClient[]">
+  Dependencies required by the factory function. The HttpClient is injected to make HTTP requests.
+</ParamField>
+
+### httpLoaderFactory()
+
+Creates a `TranslateHttpLoader` instance with the specified path and file extension.
+
+```typescript
+const httpLoaderFactory: (http: HttpClient) => TranslateHttpLoader = (http: HttpClient) =>
+  new TranslateHttpLoader(http, './assets/i18n/', '.json');
+```
+
+<ParamField path="http" type="HttpClient" required>
+  The Angular HttpClient instance used to load translation files.
+</ParamField>
+
+**Returns:** `TranslateHttpLoader` configured to load files from `./assets/i18n/` with `.json` extension.
+
+**File path pattern:** `./assets/i18n/{lang}.json`
+
+Examples:
+- English: `./assets/i18n/en.json`
+- Spanish: `./assets/i18n/es.json`
+
+### initializeTranslation()
+
+Initializes the translation service with available languages and loads the default or saved language from localStorage.
+
+```typescript
+export function initializeTranslation(): () => void {
+  const translateService: TranslateService = inject(TranslateService);
+  const languageSwitchService: LanguageSwitchService = inject(LanguageSwitchService);
+  return () => {
+    translateService.addLangs(LanguageSwitchService.availableLanguages);
+    translateService.setDefaultLang(LanguageSwitchService.defaultLanguage);
+    languageSwitchService.initLanguageFromLocalStorage();
+  };
+}
+```
+
+This function:
+1. Injects the `TranslateService` and `LanguageSwitchService`
+2. Returns a function that:
+   - Adds available languages (`['en', 'es']`) to the translate service
+   - Sets the default language (`'en'`)
+   - Initializes the language from localStorage if previously saved
+
+## Translation file structure
+
+Translation files are stored in `src/assets/i18n/` with the following structure:
+
+```
+src/assets/i18n/
+├── en.json
+└── es.json
+```
+
+Each JSON file contains key-value pairs for translations:
+
+```json
+{
+  "welcome": "Welcome",
+  "title": "Activity Bookings"
+}
+```
+
+## Available languages
+
+The application supports the following languages (defined in `LanguageSwitchService`):
+
+- **English (`en`)** - Default language
+- **Spanish (`es`)**
+
+To add more languages:
+
+1. Update `LanguageSwitchService.availableLanguages` in `src/app/core/language-switch/language-switch.service.ts`:
+
+```typescript
+public static readonly availableLanguages: string[] = ['en', 'es', 'fr'];
+```
+
+2. Create the corresponding translation file in `src/assets/i18n/` (e.g., `fr.json`)
+
+## Usage in components
+
+To use translations in your components:
+
+```typescript
+import { TranslateService } from '@ngx-translate/core';
+
+constructor(private translate: TranslateService) {}
+
+this.translate.get('welcome').subscribe((text: string) => {
+  console.log(text);
+});
+```
+
+In templates:
+
+```html
+<h1>{{ 'welcome' | translate }}</h1>
+```
+
+## Related
+
+- [Application configuration](/api/app-config) - How this configuration is integrated
+- [LanguageSwitchService](src/app/core/language-switch/language-switch.service.ts:7) - Service managing language switching

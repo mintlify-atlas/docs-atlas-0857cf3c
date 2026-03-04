@@ -1,0 +1,393 @@
+---
+title: State management
+description: Signal-based reactive state management with localStorage persistence
+---
+
+The Angular 18 Archetype uses **Angular signals** as the primary state management solution. This modern approach provides fine-grained reactivity, automatic change detection, and excellent TypeScript integration without external dependencies.
+
+## Why signals?
+
+Angular signals offer several advantages over traditional state management:
+
+- **Native to Angular** - No external libraries required
+- **Fine-grained reactivity** - Only affected components re-render
+- **Type-safe** - Full TypeScript support with inference
+- **Computed values** - Automatic derivations with memoization
+- **Synchronous** - Simpler debugging and testing
+- **SSR-friendly** - Works seamlessly with server-side rendering
+
+## Signal stores in the archetype
+
+The project includes two signal-based stores:
+
+1. **AuthStore** - Manages authentication state (user, token, auth status)
+2. **NotificationsStore** - Manages application notifications
+
+## AuthStore example
+
+Here's the complete `AuthStore` implementation showing signal patterns:
+
+```typescript
+// src/app/shared/services/state/auth.store.ts
+import { Injectable, Signal, WritableSignal, computed, inject, signal } from '@angular/core';
+import { User } from '@domain/user.type';
+import { NULL_USER_ACCESS_TOKEN, UserAccessToken } from '@domain/userAccessToken.type';
+import { LocalRepository } from '@services/utils/local.repository';
+
+@Injectable({
+  providedIn: 'root',
+})
+export class AuthStore {
+  #localRepository = inject(LocalRepository);
+
+  // Private writable signal - internal state
+  #state: WritableSignal<UserAccessToken> = signal<UserAccessToken>(
+    this.#localRepository.load('userAccessToken', NULL_USER_ACCESS_TOKEN),
+  );
+
+  // Public computed signals - derived state
+  userId: Signal<number> = computed(() => this.#state().user.id);
+  user: Signal<User> = computed(() => this.#state().user);
+  accessToken: Signal<string> = computed(() => this.#state().accessToken);
+  isAuthenticated: Signal<boolean> = computed(() => this.accessToken() !== '');
+  isAnonymous: Signal<boolean> = computed(() => this.accessToken() === '');
+
+  // Public method to update state
+  setState(userAccessToken: UserAccessToken): void {
+    this.#state.set(userAccessToken);
+    this.#localRepository.save('userAccessToken', userAccessToken);
+  }
+}
+```
+
+### Store architecture patterns
+
+<Steps>
+  <Step title="Private writable signal">
+    Core state is stored in a private `WritableSignal` (prefixed with `#`) to prevent direct external modification:
+    
+    ```typescript
+    #state: WritableSignal<UserAccessToken> = signal(initialValue);
+    ```
+  </Step>
+
+  <Step title="Public computed signals">
+    Expose read-only computed values that derive from the private state:
+    
+    ```typescript
+    isAuthenticated: Signal<boolean> = computed(() => this.accessToken() !== '');
+    ```
+  </Step>
+
+  <Step title="Public setter methods">
+    Provide controlled methods to update state:
+    
+    ```typescript
+    setState(value: UserAccessToken): void {
+      this.#state.set(value);
+      this.#localRepository.save('userAccessToken', value);
+    }
+    ```
+  </Step>
+</Steps>
+
+## NotificationsStore example
+
+The `NotificationsStore` demonstrates array state management with signals:
+
+```typescript
+// src/app/shared/services/state/notifications.store.ts
+import { Injectable, Signal, WritableSignal, computed, signal } from '@angular/core';
+import { Notification } from '@domain/notification.type';
+
+@Injectable({
+  providedIn: 'root',
+})
+export class NotificationsStore {
+  // Private state
+  #state: WritableSignal<Notification[]> = signal<Notification[]>([]);
+
+  // Public readonly signals
+  notifications: Signal<Notification[]> = this.#state.asReadonly();
+  count: Signal<number> = computed(() => this.#state().length);
+
+  // Public methods
+  addNotification(notification: Notification): void {
+    this.#state.update((current) => [...current, notification]);
+  }
+
+  clearNotifications(): void {
+    this.#state.set([]);
+  }
+}
+```
+
+### Notification type
+
+```typescript
+// src/app/shared/domain/notification.type.ts
+export type Notification = { 
+  message: string; 
+  type: 'info' | 'error' 
+};
+```
+
+### Key patterns demonstrated
+
+<Accordion title="asReadonly() for read-only signals">
+  Convert a writable signal to a readonly signal to prevent external mutations:
+  
+  ```typescript
+  notifications: Signal<Notification[]> = this.#state.asReadonly();
+  ```
+</Accordion>
+
+<Accordion title="update() for immutable array operations">
+  Use the `update()` method to modify state based on current value:
+  
+  ```typescript
+  this.#state.update((current) => [...current, notification]);
+  ```
+  
+  This creates a new array with the spread operator, maintaining immutability.
+</Accordion>
+
+<Accordion title="Computed signals for derived state">
+  Automatically calculate values from state with memoization:
+  
+  ```typescript
+  count: Signal<number> = computed(() => this.#state().length);
+  ```
+  
+  The computed value only recalculates when dependencies change.
+</Accordion>
+
+## LocalRepository for persistence
+
+The `LocalRepository` service provides SSR-safe localStorage access:
+
+```typescript
+// src/app/shared/services/utils/local.repository.ts
+import { Injectable, inject } from '@angular/core';
+import { PlatformService } from './platform.service';
+
+@Injectable({
+  providedIn: 'root',
+})
+export class LocalRepository {
+  #platformService = inject(PlatformService);
+
+  save<T>(key: string, value: T): void {
+    if (this.#platformService.isServer) return;
+    const serialized = JSON.stringify(value);
+    localStorage.setItem(key, serialized);
+  }
+
+  load<T>(key: string, defaultValue: T): T {
+    if (this.#platformService.isServer) return defaultValue;
+    const found = localStorage.getItem(key);
+    if (found) {
+      return JSON.parse(found);
+    }
+    this.save(key, defaultValue);
+    return defaultValue;
+  }
+
+  remove(key: string): void {
+    if (this.#platformService.isServer) return;
+    localStorage.removeItem(key);
+  }
+}
+```
+
+### Key features
+
+- **SSR-safe**: Checks `isServer` before accessing localStorage
+- **Type-safe**: Generic methods with TypeScript inference
+- **Automatic serialization**: JSON serialization/deserialization built-in
+- **Default values**: Gracefully handles missing keys
+
+<Note>
+  The server-side check prevents "localStorage is not defined" errors during SSR or prerendering.
+</Note>
+
+## Using signals in components
+
+### Reading signal values
+
+```typescript
+import { Component, inject } from '@angular/core';
+import { AuthStore } from '@services/state/auth.store';
+
+@Component({
+  selector: 'app-user-profile',
+  template: `
+    <h1>User ID: {{ authStore.userId() }}</h1>
+    <p>Username: {{ authStore.user().username }}</p>
+    <p>Status: {{ authStore.isAuthenticated() ? 'Logged in' : 'Guest' }}</p>
+  `
+})
+export class UserProfileComponent {
+  authStore = inject(AuthStore);
+}
+```
+
+### Reacting to signal changes
+
+```typescript
+import { Component, inject, effect } from '@angular/core';
+import { NotificationsStore } from '@services/state/notifications.store';
+
+@Component({
+  selector: 'app-notification-banner',
+  template: `
+    <div class="notification-count">
+      {{ notificationsStore.count() }} notifications
+    </div>
+  `
+})
+export class NotificationBannerComponent {
+  notificationsStore = inject(NotificationsStore);
+
+  constructor() {
+    // Effect runs whenever count changes
+    effect(() => {
+      const count = this.notificationsStore.count();
+      if (count > 0) {
+        console.log(`You have ${count} notifications`);
+      }
+    });
+  }
+}
+```
+
+## Creating a custom store
+
+Follow this pattern to create your own signal store:
+
+```typescript
+import { Injectable, Signal, WritableSignal, computed, signal } from '@angular/core';
+
+type CartItem = { id: number; name: string; quantity: number };
+
+@Injectable({ providedIn: 'root' })
+export class CartStore {
+  // Private writable state
+  #items: WritableSignal<CartItem[]> = signal<CartItem[]>([]);
+
+  // Public computed signals
+  items: Signal<CartItem[]> = this.#items.asReadonly();
+  itemCount: Signal<number> = computed(() => 
+    this.#items().reduce((sum, item) => sum + item.quantity, 0)
+  );
+  total: Signal<number> = computed(() => 
+    this.#items().reduce((sum, item) => sum + (item.quantity * item.price), 0)
+  );
+  isEmpty: Signal<boolean> = computed(() => this.#items().length === 0);
+
+  // Public methods
+  addItem(item: CartItem): void {
+    this.#items.update(items => [...items, item]);
+  }
+
+  removeItem(id: number): void {
+    this.#items.update(items => items.filter(item => item.id !== id));
+  }
+
+  updateQuantity(id: number, quantity: number): void {
+    this.#items.update(items => 
+      items.map(item => item.id === id ? { ...item, quantity } : item)
+    );
+  }
+
+  clear(): void {
+    this.#items.set([]);
+  }
+}
+```
+
+## Signal best practices
+
+<Steps>
+  <Step title="Keep state private">
+    Always use private writable signals and expose computed/readonly versions:
+    
+    ```typescript
+    #state = signal(initialValue);           // Private
+    value = this.#state.asReadonly();        // Public readonly
+    derived = computed(() => this.#state()); // Public computed
+    ```
+  </Step>
+
+  <Step title="Use computed for derivations">
+    Never manually recalculate values - use computed signals:
+    
+    ```typescript
+    // ✅ Good - automatic updates
+    total = computed(() => this.#items().reduce((sum, i) => sum + i.price, 0));
+    
+    // ❌ Bad - manual calculation
+    getTotal() { return this.#items().reduce(...); }
+    ```
+  </Step>
+
+  <Step title="Maintain immutability">
+    Always create new objects/arrays when updating:
+    
+    ```typescript
+    // ✅ Good - creates new array
+    this.#items.update(items => [...items, newItem]);
+    
+    // ❌ Bad - mutates existing array
+    this.#items.update(items => { items.push(newItem); return items; });
+    ```
+  </Step>
+
+  <Step title="Use update() over set() when possible">
+    When new state depends on old state, use `update()`:
+    
+    ```typescript
+    // ✅ Good - safe with current value
+    this.#count.update(n => n + 1);
+    
+    // ❌ Bad - might use stale value
+    this.#count.set(this.#count() + 1);
+    ```
+  </Step>
+</Steps>
+
+## When to use signals vs RxJS
+
+<Tabs>
+  <Tab title="Use signals for">
+    - Component state
+    - Synchronous data
+    - Derived/computed values
+    - Simple state management
+    - Values that change over time
+  </Tab>
+
+  <Tab title="Use RxJS for">
+    - HTTP requests
+    - Async operations
+    - Complex event streams
+    - Debouncing/throttling
+    - Multi-step transformations
+  </Tab>
+
+  <Tab title="Combine both">
+    Convert observables to signals using `toSignal()`:
+    
+    ```typescript
+    import { toSignal } from '@angular/core/rxjs-interop';
+    
+    export class DataComponent {
+      #http = inject(HttpClient);
+      
+      data = toSignal(this.#http.get('/api/data'), { 
+        initialValue: [] 
+      });
+    }
+    ```
+  </Tab>
+</Tabs>

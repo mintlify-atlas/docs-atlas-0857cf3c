@@ -1,0 +1,136 @@
+---
+title: Introduction
+description: Learn about the Angular 18 Archetype, a production-ready starter template with best practices and modern architecture
+---
+
+## What is the Angular 18 Archetype?
+
+The Angular 18 Archetype is a production-ready starter template built with Angular 18.2, featuring a well-structured architecture based on industry best practices. This archetype provides a solid foundation for building scalable Angular applications with built-in internationalization support and a modular folder structure.
+
+The project follows the file and folder structure principles outlined in [Alberto Basalo's Angular structure guide](https://albertobasalo.medium.com/file-and-folder-structure-for-angular-applications-3130efc582e3), ensuring your application remains maintainable as it grows.
+
+## Key features and benefits
+
+<CardGroup cols={2}>
+  <Card title="Modern Angular 18.2" icon="angular">
+    Built with the latest Angular 18.2, featuring standalone components, signals, and the new application builder
+  </Card>
+  
+  <Card title="Internationalization ready" icon="globe">
+    Pre-configured ngx-translate integration with English and Spanish translations out of the box
+  </Card>
+  
+  <Card title="Organized architecture" icon="folder-tree">
+    Clean separation between core, shared, and feature modules following industry best practices
+  </Card>
+  
+  <Card title="TypeScript path aliases" icon="link">
+    Pre-configured path mappings for cleaner imports: @ui/*, @domain/*, @state/*, @services/*, @api/*, @env/*
+  </Card>
+  
+  <Card title="SCSS styling" icon="paintbrush">
+    Pre-configured SCSS support for scalable styling architecture
+  </Card>
+  
+  <Card title="Testing setup" icon="flask">
+    Karma and Jasmine configured for unit testing with coverage reports
+  </Card>
+</CardGroup>
+
+## Architecture overview
+
+The archetype organizes code into three main layers:
+
+### Core layer
+Contains singleton services, guards, interceptors, and application-wide components:
+- **language-switch**: Multi-language support service and component
+- **layout**: Layout components like cookies banner and error handling
+- **providers**: Authentication guard and interceptor
+
+### Shared layer
+Reusable code shared across features:
+- **domain**: Type definitions (User, Notification, AccessToken)
+- **services/state**: State management stores (auth, notifications)
+- **services/utils**: Utility services (local storage, platform detection)
+- **ui**: Reusable UI components
+
+### Configuration
+Centralized configuration for:
+- HTTP loader factory for translations
+- Application bootstrap configuration
+- Route definitions
+
+<Info>
+The archetype uses Angular's standalone components approach, eliminating the need for NgModules and enabling better tree-shaking.
+</Info>
+
+## Who should use this archetype?
+
+This archetype is ideal for:
+
+- **Teams starting new Angular projects** who want to follow best practices from day one
+- **Developers building enterprise applications** that require scalability and maintainability
+- **Projects requiring internationalization** with support for multiple languages
+- **Teams wanting a structured approach** to organizing Angular applications
+
+<Warning>
+This archetype requires Angular CLI 18.2.3 or higher and Node.js 18.x or later.
+</Warning>
+
+## Prerequisites
+
+Before using this archetype, ensure you have:
+
+<Steps>
+  <Step title="Node.js 18.x or later">
+    Download and install from [nodejs.org](https://nodejs.org/)
+    
+    Verify installation:
+    ```bash
+    node --version
+    ```
+  </Step>
+  
+  <Step title="Angular CLI">
+    Install globally via npm:
+    ```bash
+    npm install -g @angular/cli@18
+    ```
+    
+    Verify installation:
+    ```bash
+    ng version
+    ```
+  </Step>
+  
+  <Step title="Git (optional)">
+    Required if cloning the repository. Download from [git-scm.com](https://git-scm.com/)
+  </Step>
+</Steps>
+
+## What's included
+
+The archetype comes pre-configured with:
+
+```json package.json dependencies
+{
+  "@angular/animations": "^18.2.0",
+  "@angular/common": "^18.2.0",
+  "@angular/compiler": "^18.2.0",
+  "@angular/core": "^18.2.0",
+  "@angular/forms": "^18.2.0",
+  "@angular/platform-browser": "^18.2.0",
+  "@angular/platform-browser-dynamic": "^18.2.0",
+  "@angular/router": "^18.2.0",
+  "@ngx-translate/core": "^15.0.0",
+  "@ngx-translate/http-loader": "^8.0.0",
+  "rxjs": "~7.8.0",
+  "zone.js": "~0.14.10"
+}
+```
+
+## Next steps
+
+Ready to get started? Follow the [quickstart guide](/quickstart) to set up your development environment and start building.
+
+For deeper insights into the architecture and patterns used, explore the architecture documentation (coming soon).

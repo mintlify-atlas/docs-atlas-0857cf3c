@@ -1,0 +1,549 @@
+---
+title: Shared layer
+description: Reusable components, services, domain types, and state management with Angular signals
+---
+
+The shared layer contains reusable functionality that can be used across multiple features. This includes domain types, UI components, utility services, and signal-based state management stores.
+
+<Info>
+  **Location:** `src/app/shared/`
+  
+  Everything in the shared layer should be reusable. If something is only used in one feature, it belongs in that feature's directory instead.
+</Info>
+
+## Shared layer structure
+
+```
+src/app/shared/
+├── domain/              # Type definitions and domain models
+│   ├── notification.type.ts
+│   ├── user.type.ts
+│   └── userAccessToken.type.ts
+├── services/            # Shared services
+│   ├── state/           # Signal-based state stores
+│   │   ├── auth.store.ts
+│   │   └── notifications.store.ts
+│   └── utils/           # Utility services
+│       ├── local.repository.ts
+│       └── platform.service.ts
+└── ui/                  # Reusable UI components
+    └── notifications.component.ts
+```
+
+## Domain types
+
+Domain types define the shape of data used throughout the application. They are TypeScript types or interfaces that represent business entities.
+
+### Notification type
+
+```typescript src/app/shared/domain/notification.type.ts
+/** A notification for the user */
+export type Notification = { message: string; type: 'info' | 'error' };
+```
+
+### User type
+
+```typescript src/app/shared/domain/user.type.ts
+/**
+ * User type representation on the client side.
+ * @description This is a DTO for the user entity without password field
+ */
+export type User = {
+  id: number;
+  username: string;
+  email: string;
+  terms: boolean;
+};
+
+/** Null object pattern for the User type */
+export const NULL_USER: User = {
+  id: 0,
+  username: '',
+  email: '',
+  terms: false,
+};
+```
+
+<Note>
+  Domain types often include "null object" constants that represent empty or default states. This follows the Null Object Pattern and eliminates the need for null checks.
+</Note>
+
+### UserAccessToken type
+
+Combines user data with authentication tokens (from `src/app/shared/domain/userAccessToken.type.ts`).
+
+**Import using path alias:**
+
+```typescript
+import { User, NULL_USER } from '@domain/user.type';
+import { Notification } from '@domain/notification.type';
+```
+
+## State management with signals
+
+The application uses Angular signals for reactive state management. Stores are injectable services that manage application state.
+
+### AuthStore
+
+Manages authentication state using signals:
+
+```typescript src/app/shared/services/state/auth.store.ts
+import { Injectable, Signal, WritableSignal, computed, inject, signal } from '@angular/core';
+import { User } from '@domain/user.type';
+import { NULL_USER_ACCESS_TOKEN, UserAccessToken } from '@domain/userAccessToken.type';
+import { LocalRepository } from '@services/utils/local.repository';
+
+/**
+ * Signal Store for the Authentication data
+ */
+@Injectable({
+  providedIn: 'root',
+})
+export class AuthStore {
+  #localRepository: LocalRepository = inject(LocalRepository);
+
+  // Private writable signal
+  #state: WritableSignal<UserAccessToken> = signal<UserAccessToken>(
+    this.#localRepository.load('userAccessToken', NULL_USER_ACCESS_TOKEN),
+  );
+
+  // Public computed signals
+  userId: Signal<number> = computed(() => this.#state().user.id);
+  user: Signal<User> = computed(() => this.#state().user);
+  accessToken: Signal<string> = computed(() => this.#state().accessToken);
+  isAuthenticated: Signal<boolean> = computed(() => this.accessToken() !== '');
+  isAnonymous: Signal<boolean> = computed(() => this.accessToken() === '');
+
+  /**
+   * Saves the new state of the Authentication State
+   */
+  setState(userAccessToken: UserAccessToken): void {
+    this.#state.set(userAccessToken);
+    this.#localRepository.save('userAccessToken', userAccessToken);
+  }
+}
+```
+
+**Key features:**
+- Private writable signal (`#state`) for encapsulation
+- Public computed signals for derived state
+- Automatic persistence to localStorage
+- Type-safe with TypeScript
+- Reactive - components update automatically
+
+**Usage in components:**
+
+```typescript
+import { Component, inject } from '@angular/core';
+import { AuthStore } from '@state/auth.store';
+
+@Component({
+  selector: 'app-user-profile',
+  template: `
+    <div>
+      <h1>Welcome {{ authStore.user().username }}</h1>
+      <p>{{ authStore.user().email }}</p>
+    </div>
+  `
+})
+export class UserProfileComponent {
+  authStore = inject(AuthStore);
+}
+```
+
+### NotificationsStore
+
+Manages a list of notifications:
+
+```typescript src/app/shared/services/state/notifications.store.ts
+import { Injectable, Signal, WritableSignal, computed, signal } from '@angular/core';
+import { Notification } from '@domain/notification.type';
+
+/**
+ * Store for managing notifications
+ */
+@Injectable({
+  providedIn: 'root',
+})
+export class NotificationsStore {
+  #state: WritableSignal<Notification[]> = signal<Notification[]>([]);
+
+  // Public readonly signals
+  notifications: Signal<Notification[]> = this.#state.asReadonly();
+  count: Signal<number> = computed(() => this.#state().length);
+
+  /**
+   * Adds a notification to the list
+   */
+  addNotification(notification: Notification): void {
+    this.#state.update((current) => [...current, notification]);
+  }
+  
+  /**
+   * Clears all notifications
+   */
+  clearNotifications(): void {
+    this.#state.set([]);
+  }
+}
+```
+
+**Key features:**
+- Immutable updates using `update()` method
+- Computed signal for derived values (count)
+- Readonly signal exposure for safety
+
+<Accordion title="Signal patterns used in stores">
+  <Steps>
+    <Step title="WritableSignal">
+      Private signal that holds the actual state:
+      ```typescript
+      #state: WritableSignal<T> = signal<T>(initialValue);
+      ```
+    </Step>
+    
+    <Step title="Computed signals">
+      Derived values that automatically update:
+      ```typescript
+      count: Signal<number> = computed(() => this.#state().length);
+      ```
+    </Step>
+    
+    <Step title="Readonly signals">
+      Public read-only access to state:
+      ```typescript
+      items: Signal<T[]> = this.#state.asReadonly();
+      ```
+    </Step>
+    
+    <Step title="Update methods">
+      Immutable state updates:
+      ```typescript
+      this.#state.update((current) => [...current, newItem]);
+      ```
+    </Step>
+  </Steps>
+</Accordion>
+
+**Import using path alias:**
+
+```typescript
+import { AuthStore } from '@state/auth.store';
+import { NotificationsStore } from '@state/notifications.store';
+```
+
+## Utility services
+
+### LocalRepository
+
+Safe wrapper for localStorage with SSR support:
+
+```typescript src/app/shared/services/utils/local.repository.ts
+import { Injectable, inject } from '@angular/core';
+import { PlatformService } from './platform.service';
+
+/**
+ * Utility service to access the local storage.
+ * - Avoid accessing localStorage when running on the server.
+ */
+@Injectable({
+  providedIn: 'root',
+})
+export class LocalRepository {
+  #platformService = inject(PlatformService);
+
+  /**
+   * Saves a value in the local storage
+   */
+  save<T>(key: string, value: T): void {
+    if (this.#platformService.isServer) return;
+    const serialized = JSON.stringify(value);
+    localStorage.setItem(key, serialized);
+  }
+
+  /**
+   * Loads a generic value from the local storage
+   */
+  load<T>(key: string, defaultValue: T): T {
+    if (this.#platformService.isServer) return defaultValue;
+    const found = localStorage.getItem(key);
+    if (found) {
+      return JSON.parse(found);
+    }
+    this.save(key, defaultValue);
+    return defaultValue;
+  }
+
+  /**
+   * Removes a value from the local storage
+   */
+  remove(key: string): void {
+    if (this.#platformService.isServer) return;
+    localStorage.removeItem(key);
+  }
+}
+```
+
+**Key features:**
+- Type-safe generic methods
+- SSR-compatible (checks platform before accessing localStorage)
+- Automatic JSON serialization/deserialization
+- Default value handling
+
+### PlatformService
+
+Detects whether code is running in browser or server (referenced in `LocalRepository`).
+
+**Import using path alias:**
+
+```typescript
+import { LocalRepository } from '@services/utils/local.repository';
+import { PlatformService } from '@services/utils/platform.service';
+```
+
+## UI components
+
+### NotificationsComponent
+
+Reusable component for displaying notifications:
+
+```typescript src/app/shared/ui/notifications.component.ts
+import { ChangeDetectionStrategy, Component, InputSignal, OutputEmitterRef, input, output } from '@angular/core';
+import { Notification } from '@domain/notification.type';
+
+/**
+ * Component to show notifications to the user
+ */
+@Component({
+  selector: 'lab-notifications',
+  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [],
+  template: `
+    <dialog open>
+      <article>
+        <header>
+          <h2>Notifications</h2>
+        </header>
+        @for (notification of notifications(); track notification) {
+          @if (notification.type === 'error') {
+            <input disabled aria-invalid="true" [value]="notification.message" />
+          } @else {
+            <input disabled aria-invalid="false" [value]="notification.message" />
+          }
+        }
+        <footer>
+          <button (click)="close.emit()">Close</button>
+        </footer>
+      </article>
+    </dialog>
+  `,
+})
+export class NotificationsComponent {
+  notifications: InputSignal<Notification[]> = input<Notification[]>([]);
+  close: OutputEmitterRef<void> = output();
+}
+```
+
+**Key features:**
+- Standalone component
+- Signal-based inputs with `input()`
+- Type-safe outputs with `output()`
+- OnPush change detection for performance
+- Modern Angular control flow (`@for`, `@if`)
+
+**Usage:**
+
+```typescript
+import { Component, inject } from '@angular/core';
+import { NotificationsComponent } from '@ui/notifications.component';
+import { NotificationsStore } from '@state/notifications.store';
+
+@Component({
+  selector: 'app-root',
+  imports: [NotificationsComponent],
+  template: `
+    @if (notificationsStore.count() > 0) {
+      <lab-notifications 
+        [notifications]="notificationsStore.notifications()"
+        (close)="notificationsStore.clearNotifications()" />
+    }
+  `
+})
+export class AppComponent {
+  notificationsStore = inject(NotificationsStore);
+}
+```
+
+<Note>
+  All UI components in the shared layer should be standalone and use OnPush change detection for optimal performance.
+</Note>
+
+**Import using path alias:**
+
+```typescript
+import { NotificationsComponent } from '@ui/notifications.component';
+```
+
+## Adding new shared functionality
+
+<Steps>
+  <Step title="Determine the category">
+    Choose the appropriate subdirectory:
+    - **domain/** - Type definitions
+    - **services/state/** - State management stores
+    - **services/utils/** - Utility services
+    - **services/api/** - API communication
+    - **ui/** - Reusable components
+  </Step>
+  
+  <Step title="Create the file">
+    Follow naming conventions:
+    ```bash
+    # Domain type
+    touch src/app/shared/domain/product.type.ts
+    
+    # Store
+    ng generate service shared/services/state/cart.store
+    
+    # UI component
+    ng generate component shared/ui/modal --standalone
+    ```
+  </Step>
+  
+  <Step title="Use path aliases">
+    Configure imports in `tsconfig.json` if needed:
+    ```json
+    "@domain/*": ["src/app/shared/domain/*"],
+    "@state/*": ["src/app/shared/services/state/*"],
+    "@ui/*": ["src/app/shared/ui/*"]
+    ```
+  </Step>
+  
+  <Step title="Ensure reusability">
+    Make sure the functionality is:
+    - Generic enough to be used in multiple features
+    - Self-contained with minimal dependencies
+    - Well-documented with JSDoc comments
+  </Step>
+</Steps>
+
+## Signal store patterns
+
+When creating new stores, follow these patterns:
+
+### Basic store structure
+
+```typescript
+import { Injectable, Signal, WritableSignal, computed, signal } from '@angular/core';
+
+@Injectable({ providedIn: 'root' })
+export class MyStore {
+  // 1. Private state
+  #state: WritableSignal<MyState> = signal<MyState>(initialState);
+
+  // 2. Public computed selectors
+  data: Signal<MyState> = this.#state.asReadonly();
+  someValue: Signal<string> = computed(() => this.#state().someProperty);
+
+  // 3. Public methods to update state
+  updateState(newValue: Partial<MyState>): void {
+    this.#state.update((current) => ({ ...current, ...newValue }));
+  }
+}
+```
+
+### State persistence
+
+```typescript
+import { inject } from '@angular/core';
+import { LocalRepository } from '@services/utils/local.repository';
+
+export class PersistentStore {
+  #localRepository = inject(LocalRepository);
+  
+  #state = signal(
+    this.#localRepository.load('storeKey', defaultValue)
+  );
+
+  setState(value: T): void {
+    this.#state.set(value);
+    this.#localRepository.save('storeKey', value);
+  }
+}
+```
+
+### Collection management
+
+```typescript
+export class ItemsStore {
+  #state: WritableSignal<Item[]> = signal<Item[]>([]);
+
+  items: Signal<Item[]> = this.#state.asReadonly();
+  count: Signal<number> = computed(() => this.#state().length);
+
+  addItem(item: Item): void {
+    this.#state.update((items) => [...items, item]);
+  }
+
+  removeItem(id: number): void {
+    this.#state.update((items) => items.filter(item => item.id !== id));
+  }
+
+  updateItem(id: number, updates: Partial<Item>): void {
+    this.#state.update((items) =>
+      items.map(item => item.id === id ? { ...item, ...updates } : item)
+    );
+  }
+}
+```
+
+<Warning>
+  Always use immutable update patterns. Never mutate the signal's value directly:
+  
+  ```typescript
+  // ❌ Wrong - mutates state
+  this.#state().push(newItem);
+  
+  // ✅ Correct - creates new array
+  this.#state.update((current) => [...current, newItem]);
+  ```
+</Warning>
+
+## Best practices
+
+<CardGroup cols={2}>
+  <Card title="Immutable updates" icon="lock">
+    Always create new objects/arrays when updating signals. Never mutate existing values.
+  </Card>
+  
+  <Card title="Computed signals" icon="calculator">
+    Use computed signals for derived state instead of manually syncing values.
+  </Card>
+  
+  <Card title="Private state" icon="eye-slash">
+    Keep writable signals private. Expose readonly signals or computed values publicly.
+  </Card>
+  
+  <Card title="Single responsibility" icon="bullseye">
+    Each store should manage one domain of state (auth, notifications, cart, etc.).
+  </Card>
+</CardGroup>
+
+<Info>
+  Signals provide automatic dependency tracking and fine-grained reactivity. Components using signals automatically re-render when the signal values change.
+</Info>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture overview" icon="sitemap" href="/architecture/overview">
+    Review the complete architecture design
+  </Card>
+  <Card title="Core layer" icon="shield" href="/architecture/core-layer">
+    Learn about app-wide services and providers
+  </Card>
+  <Card title="Folder structure" icon="folder-tree" href="/architecture/folder-structure">
+    Understand where to place new code
+  </Card>
+</CardGroup>

@@ -1,0 +1,286 @@
+---
+title: LocalRepository
+description: Utility service for safe localStorage access with SSR support
+---
+
+The `LocalRepository` is an Angular service that provides safe access to the browser's localStorage API. It automatically handles server-side rendering (SSR) scenarios where localStorage is not available.
+
+## Overview
+
+This injectable service wraps localStorage operations and uses the `PlatformService` to determine if the application is running on the server or in the browser. All localStorage operations are automatically skipped when running on the server.
+
+**Source:** `src/app/shared/services/utils/local.repository.ts`
+
+## Methods
+
+### save()
+
+```typescript
+save<T>(key: string, value: T): void
+```
+
+Saves a value to localStorage with automatic JSON serialization.
+
+<ParamField path="key" type="string" required>
+  The key under which to store the value in localStorage
+</ParamField>
+
+<ParamField path="value" type="T" required>
+  The serializable value to save. Will be automatically converted to JSON.
+</ParamField>
+
+**Behavior:**
+- Skips operation if running on server (SSR)
+- Serializes the value to JSON using `JSON.stringify()`
+- Stores the serialized value in localStorage
+- Works with any serializable type (objects, arrays, primitives)
+
+<ResponseField name="return" type="void">
+  No return value
+</ResponseField>
+
+### load()
+
+```typescript
+load<T>(key: string, defaultValue: T): T
+```
+
+Loads a value from localStorage with automatic JSON deserialization.
+
+<ParamField path="key" type="string" required>
+  The key to load the value from localStorage
+</ParamField>
+
+<ParamField path="defaultValue" type="T" required>
+  The default value to return if the key is not found or if running on server
+</ParamField>
+
+**Behavior:**
+- Returns `defaultValue` if running on server (SSR)
+- Retrieves the value from localStorage by key
+- Deserializes the JSON string back to the original type
+- If key is not found, saves the `defaultValue` to localStorage and returns it
+- Returns `defaultValue` if localStorage is empty for that key
+
+<ResponseField name="return" type="T">
+  The loaded value from localStorage, or the default value if not found
+</ResponseField>
+
+### remove()
+
+```typescript
+remove(key: string): void
+```
+
+Removes a value from localStorage.
+
+<ParamField path="key" type="string" required>
+  The key to remove from localStorage
+</ParamField>
+
+**Behavior:**
+- Skips operation if running on server (SSR)
+- Removes the item from localStorage
+- Does nothing if the key doesn't exist
+
+<ResponseField name="return" type="void">
+  No return value
+</ResponseField>
+
+## Usage example
+
+### Basic storage operations
+
+```typescript
+import { Component, inject, OnInit } from '@angular/core';
+import { LocalRepository } from '@services/utils/local.repository';
+
+interface UserPreferences {
+  theme: 'light' | 'dark';
+  language: string;
+  notifications: boolean;
+}
+
+@Component({
+  selector: 'app-settings',
+  template: `
+    <div>
+      <h2>Settings</h2>
+      <label>
+        <input type="checkbox" [(ngModel)]="preferences.notifications">
+        Enable notifications
+      </label>
+      <button (click)="savePreferences()">Save</button>
+      <button (click)="resetPreferences()">Reset</button>
+    </div>
+  `
+})
+export class SettingsComponent implements OnInit {
+  localRepo = inject(LocalRepository);
+  preferences: UserPreferences = {
+    theme: 'light',
+    language: 'en',
+    notifications: true
+  };
+
+  ngOnInit() {
+    // Load preferences with default values
+    this.preferences = this.localRepo.load('userPreferences', {
+      theme: 'light',
+      language: 'en',
+      notifications: true
+    });
+  }
+
+  savePreferences() {
+    this.localRepo.save('userPreferences', this.preferences);
+    console.log('Preferences saved!');
+  }
+
+  resetPreferences() {
+    this.localRepo.remove('userPreferences');
+    this.preferences = {
+      theme: 'light',
+      language: 'en',
+      notifications: true
+    };
+  }
+}
+```
+
+### Using with primitive types
+
+```typescript
+import { inject } from '@angular/core';
+import { LocalRepository } from '@services/utils/local.repository';
+
+export class ExampleService {
+  localRepo = inject(LocalRepository);
+
+  // Save and load strings
+  saveUsername(username: string) {
+    this.localRepo.save('username', username);
+  }
+
+  getUsername(): string {
+    return this.localRepo.load('username', 'Anonymous');
+  }
+
+  // Save and load numbers
+  saveLastVisit(timestamp: number) {
+    this.localRepo.save('lastVisit', timestamp);
+  }
+
+  getLastVisit(): number {
+    return this.localRepo.load('lastVisit', Date.now());
+  }
+
+  // Save and load arrays
+  saveRecentSearches(searches: string[]) {
+    this.localRepo.save('recentSearches', searches);
+  }
+
+  getRecentSearches(): string[] {
+    return this.localRepo.load('recentSearches', []);
+  }
+}
+```
+
+### Using with complex objects
+
+```typescript
+import { Injectable, inject } from '@angular/core';
+import { LocalRepository } from '@services/utils/local.repository';
+
+interface ShoppingCart {
+  items: Array<{ id: number; name: string; quantity: number; price: number }>;
+  total: number;
+  lastUpdated: string;
+}
+
+@Injectable({
+  providedIn: 'root'
+})
+export class CartService {
+  localRepo = inject(LocalRepository);
+
+  getCart(): ShoppingCart {
+    return this.localRepo.load('shoppingCart', {
+      items: [],
+      total: 0,
+      lastUpdated: new Date().toISOString()
+    });
+  }
+
+  saveCart(cart: ShoppingCart) {
+    cart.lastUpdated = new Date().toISOString();
+    this.localRepo.save('shoppingCart', cart);
+  }
+
+  clearCart() {
+    this.localRepo.remove('shoppingCart');
+  }
+}
+```
+
+### Integration with signal stores
+
+```typescript
+import { Injectable, Signal, WritableSignal, inject, signal } from '@angular/core';
+import { LocalRepository } from '@services/utils/local.repository';
+
+interface AppSettings {
+  darkMode: boolean;
+  sidebarCollapsed: boolean;
+}
+
+@Injectable({
+  providedIn: 'root'
+})
+export class SettingsStore {
+  #localRepo = inject(LocalRepository);
+  
+  // Initialize signal with value from localStorage
+  #state: WritableSignal<AppSettings> = signal<AppSettings>(
+    this.#localRepo.load('appSettings', {
+      darkMode: false,
+      sidebarCollapsed: false
+    })
+  );
+
+  settings: Signal<AppSettings> = this.#state.asReadonly();
+
+  updateSettings(settings: AppSettings) {
+    this.#state.set(settings);
+    this.#localRepo.save('appSettings', settings);
+  }
+}
+```
+
+## SSR behavior
+
+When the application runs on the server:
+- `save()` does nothing (silent no-op)
+- `load()` always returns the provided `defaultValue`
+- `remove()` does nothing (silent no-op)
+
+This ensures your application works correctly in both browser and server environments without throwing errors.
+
+## Type safety
+
+All methods are generic and preserve type information:
+
+```typescript
+interface User {
+  id: number;
+  name: string;
+}
+
+const localRepo = inject(LocalRepository);
+
+// Type is inferred as User
+const user = localRepo.load<User>('user', { id: 0, name: '' });
+
+// TypeScript knows user.id is a number
+console.log(user.id);
+```

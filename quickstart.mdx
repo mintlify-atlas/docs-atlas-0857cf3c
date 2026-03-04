@@ -1,80 +1,399 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get up and running with the Angular 18 Archetype in minutes
 ---
 
-## Get started in three steps
+## Getting started
 
-Get your documentation site running locally and make your first customization.
+This guide will walk you through setting up the Angular 18 Archetype and running your first development server.
 
-### Step 1: Set up your local environment
+<Note>
+Before starting, make sure you have Node.js 18.x or later and Angular CLI installed. See the [introduction](/introduction) for prerequisites.
+</Note>
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+## Clone the repository
+
+<Steps>
+  <Step title="Clone the project">
+    Clone the repository to your local machine:
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
+    ```bash
+    git clone <repository-url> angular-18-archetype
+    cd angular-18-archetype
+    ```
     
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
+    <Info>
+    Replace `<repository-url>` with the actual URL of your repository.
+    </Info>
+  </Step>
+  
+  <Step title="Verify the structure">
+    Check that you have the correct project structure:
     
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    ```bash
+    ls -la
+    ```
+    
+    You should see:
+    - `src/` - Source code directory
+    - `package.json` - Project dependencies
+    - `angular.json` - Angular configuration
+    - `tsconfig.json` - TypeScript configuration
+  </Step>
+</Steps>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+## Install dependencies
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+<Steps>
+  <Step title="Install npm packages">
+    Install all project dependencies:
+    
+    ```bash
+    npm install
+    ```
+    
+    This will install Angular 18.2, ngx-translate, and all development dependencies.
+  </Step>
+  
+  <Step title="Verify installation">
+    Confirm the installation was successful:
+    
+    ```bash
+    npm list --depth=0
+    ```
+    
+    You should see all dependencies from package.json listed.
+  </Step>
+</Steps>
 
-### Step 3: Go live
+<Warning>
+If you encounter peer dependency warnings, you can safely ignore them or use `npm install --legacy-peer-deps` if needed.
+</Warning>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+## Run the development server
+
+<Steps>
+  <Step title="Start the dev server">
+    Launch the development server:
+    
+    ```bash
+    npm start
+    ```
+    
+    Or using Angular CLI directly:
+    
+    ```bash
+    ng serve
+    ```
+    
+    The application will start on `http://localhost:4200/`
+  </Step>
+  
+  <Step title="Open in browser">
+    Navigate to [http://localhost:4200/](http://localhost:4200/) in your browser.
+    
+    The app will automatically reload whenever you make changes to the source files.
+  </Step>
+</Steps>
+
+<Info>
+The development server uses Angular's default configuration with source maps enabled for easier debugging.
+</Info>
+
+## Make your first changes
+
+Let's make a simple change to verify everything is working:
+
+<Steps>
+  <Step title="Open the main component">
+    Open `src/app/app.component.ts` in your editor:
+    
+    ```typescript src/app/app.component.ts
+    import { Component, inject } from '@angular/core';
+    import { RouterOutlet } from '@angular/router';
+    import { TranslateModule } from '@ngx-translate/core';
+    import { LanguageSwitchService } from './core/language-switch/language-switch.service';
+    import { NavbarComponent } from './core/language-switch/language-switch.component';
+    
+    @Component({
+      selector: 'app-root',
+      standalone: true,
+      imports: [RouterOutlet, TranslateModule, NavbarComponent],
+      templateUrl: './app.component.html',
+      styleUrl: './app.component.scss'
+    })
+    export class AppComponent {
+      title = 'angular-18-archetype';
+      languageService = inject(LanguageSwitchService);
+      constructor() {
+        this.languageService.setLanguage('es')
+      }
+    }
+    ```
+  </Step>
+  
+  <Step title="Change the default language">
+    Modify the default language from Spanish to English:
+    
+    ```typescript
+    constructor() {
+      this.languageService.setLanguage('en')  // Changed from 'es' to 'en'
+    }
+    ```
+    
+    Save the file and observe the automatic reload in your browser.
+  </Step>
+  
+  <Step title="Test the language switcher">
+    The archetype includes a language switcher component. Try switching between English and Spanish using the UI component.
+    
+    <Note>
+    The language preference is automatically saved to localStorage and persists across sessions.
+    </Note>
+  </Step>
+</Steps>
+
+## Understanding the project structure
+
+The archetype uses a structured folder organization:
+
+```
+src/
+├── app/
+│   ├── config/          # App configuration and factories
+│   ├── core/            # Core services, guards, interceptors
+│   │   ├── language-switch/
+│   │   ├── layout/
+│   │   └── providers/
+│   ├── shared/          # Shared code across features
+│   │   ├── domain/      # Type definitions
+│   │   ├── services/    # Shared services
+│   │   │   ├── state/   # State management
+│   │   │   └── utils/   # Utility services
+│   │   └── ui/          # Reusable UI components
+│   ├── app.component.ts
+│   ├── app.config.ts    # Application providers
+│   └── app.routes.ts    # Route definitions
+├── assets/
+│   └── i18n/           # Translation files (en.json, es.json)
+└── environments/        # Environment configurations
+```
+
+### TypeScript path aliases
+
+The archetype includes pre-configured path aliases for cleaner imports:
+
+```typescript Example imports
+import { NotificationComponent } from '@ui/notifications.component';
+import { User } from '@domain/user.type';
+import { AuthStore } from '@state/auth.store';
+import { LocalRepository } from '@services/utils/local.repository';
+```
+
+## Available scripts
+
+The archetype includes these npm scripts:
+
+<CodeGroup>
+```bash Development server
+npm start
+# Starts the dev server at http://localhost:4200/
+```
+
+```bash Build for production
+npm run build
+# Creates optimized production build in dist/
+```
+
+```bash Watch mode
+npm run watch
+# Builds in watch mode with development configuration
+```
+
+```bash Run tests
+npm test
+# Executes unit tests via Karma
+```
+
+```bash Angular CLI
+npm run ng -- <command>
+# Run any Angular CLI command
+```
+</CodeGroup>
+
+## Build for production
+
+<Steps>
+  <Step title="Create production build">
+    Build the application for production:
+    
+    ```bash
+    npm run build
+    ```
+    
+    This creates an optimized build in the `dist/angular-18-archetype/` directory.
+  </Step>
+  
+  <Step title="Review build output">
+    The production build includes:
+    - Output hashing for cache busting
+    - Bundle optimization and minification
+    - Tree shaking for smaller bundle sizes
+    - Source maps disabled by default
+    
+    <Info>
+    The build has budget limits configured: 500kB warning, 1MB error for initial bundles.
+    </Info>
+  </Step>
+  
+  <Step title="Test production build locally">
+    You can test the production build locally using a static file server:
+    
+    ```bash
+    npx serve dist/angular-18-archetype/browser
+    ```
+  </Step>
+</Steps>
+
+## Generate new components
+
+Use Angular CLI to generate new components, services, and other artifacts:
+
+<Tabs>
+  <Tab title="Component">
+    Generate a new component:
+    ```bash
+    ng generate component feature/my-component
+    ```
+    
+    Or using the shorthand:
+    ```bash
+    ng g c feature/my-component
+    ```
+  </Tab>
+  
+  <Tab title="Service">
+    Generate a new service:
+    ```bash
+    ng generate service shared/services/my-service
+    ```
+    
+    Or using the shorthand:
+    ```bash
+    ng g s shared/services/my-service
+    ```
+  </Tab>
+  
+  <Tab title="Guard">
+    Generate a new guard:
+    ```bash
+    ng generate guard core/providers/my-guard
+    ```
+  </Tab>
+  
+  <Tab title="Interceptor">
+    Generate a new interceptor:
+    ```bash
+    ng generate interceptor core/providers/my-interceptor
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+All generated components will be standalone by default, matching the archetype's approach.
+</Note>
+
+## Working with translations
+
+The archetype uses ngx-translate for internationalization:
+
+<Steps>
+  <Step title="Add translation keys">
+    Edit the translation files in `src/assets/i18n/`:
+    
+    ```json src/assets/i18n/en.json
+    {
+      "WELCOME": "Welcome to Angular 18 Archetype",
+      "DESCRIPTION": "A production-ready starter template"
+    }
+    ```
+    
+    ```json src/assets/i18n/es.json
+    {
+      "WELCOME": "Bienvenido a Angular 18 Archetype",
+      "DESCRIPTION": "Una plantilla inicial lista para producción"
+    }
+    ```
+  </Step>
+  
+  <Step title="Use translations in components">
+    Import TranslateModule and use the translate pipe:
+    
+    ```typescript
+    import { TranslateModule } from '@ngx-translate/core';
+    
+    @Component({
+      // ...
+      imports: [TranslateModule],
+      template: `
+        <h1>{{ 'WELCOME' | translate }}</h1>
+        <p>{{ 'DESCRIPTION' | translate }}</p>
+      `
+    })
+    ```
+  </Step>
+  
+  <Step title="Switch languages programmatically">
+    Use the LanguageSwitchService:
+    
+    ```typescript
+    import { LanguageSwitchService } from './core/language-switch/language-switch.service';
+    
+    export class MyComponent {
+      languageService = inject(LanguageSwitchService);
+      
+      switchToEnglish() {
+        this.languageService.setLanguage('en');
+      }
+    }
+    ```
+    
+    <Info>
+    Available languages are defined in `LanguageSwitchService.availableLanguages`: ['en', 'es']
+    </Info>
+  </Step>
+</Steps>
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
+Now that you have the archetype running, explore these topics:
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Architecture guide" icon="sitemap">
+    Learn about the folder structure and architectural decisions
+  </Card>
+  
+  <Card title="State management" icon="database">
+    Understand the state management patterns using stores
+  </Card>
+  
+  <Card title="Authentication" icon="lock">
+    Implement authentication using the included guard and interceptor
+  </Card>
+  
+  <Card title="Deployment" icon="rocket">
+    Deploy your application to production
+  </Card>
 </CardGroup>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+<Warning>
+Remember to update the `README.md` with project-specific information and replace placeholder content with your actual project details.
+</Warning>
+
+## Getting help
+
+If you encounter issues or have questions:
+
+- Check the [Angular documentation](https://angular.dev)
+- Review the [ngx-translate documentation](https://github.com/ngx-translate/core)
+- Contact the archetype maintainer at amarin@gmail.com

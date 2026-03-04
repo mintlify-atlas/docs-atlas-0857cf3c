@@ -1,0 +1,253 @@
+---
+title: Creating components
+description: Learn how to create and organize components in the Angular 18 Archetype using standalone components
+---
+
+This guide explains how to create components following the Angular 18 Archetype's structure and best practices.
+
+## Component organization
+
+The project organizes components into three main areas:
+
+- **`src/app/core/`** - Core infrastructure components (layout, navigation, language switcher)
+- **`src/app/shared/ui/`** - Reusable UI components used across the application
+- **`src/app/features/`** - Feature-specific components (create this directory as needed)
+
+<Note>
+  All components in this archetype use the **standalone** API introduced in Angular 15+.
+</Note>
+
+## Creating a component with Angular CLI
+
+<Steps>
+  <Step title="Choose the appropriate location">
+    Decide where your component belongs:
+
+    - **Core components**: Layout, navigation, app-wide infrastructure
+    - **Shared UI components**: Reusable presentational components
+    - **Feature components**: Business logic and feature-specific views
+  </Step>
+
+  <Step title="Generate the component">
+    Use Angular CLI to generate a standalone component:
+
+    ```bash
+    # Shared UI component
+    ng generate component shared/ui/button --standalone
+
+    # Core component
+    ng generate component core/header --standalone
+
+    # Feature component
+    ng generate component features/dashboard/user-profile --standalone
+    ```
+
+    <Note>
+      The `--standalone` flag creates a standalone component that doesn't require a NgModule.
+    </Note>
+  </Step>
+
+  <Step title="Import and use the component">
+    Import the component where you need it:
+
+    ```typescript
+    import { Component } from '@angular/core';
+    import { ButtonComponent } from '@ui/button.component';
+
+    @Component({
+      selector: 'app-example',
+      standalone: true,
+      imports: [ButtonComponent],
+      template: `<app-button>Click me</app-button>`
+    })
+    export class ExampleComponent {}
+    ```
+  </Step>
+</Steps>
+
+## Component structure example
+
+Here's a real example from the archetype - the `NotificationsComponent` at `src/app/shared/ui/notifications.component.ts:8`:
+
+```typescript src/app/shared/ui/notifications.component.ts
+import { ChangeDetectionStrategy, Component, InputSignal, OutputEmitterRef, input, output } from '@angular/core';
+import { Notification } from '@domain/notification.type';
+
+/**
+ * Component to show notifications to the user
+ * @param {Notification[]} notifications The list of notifications to show
+ * @emits close The event to close the notifications
+ */
+@Component({
+  selector: 'lab-notifications',
+  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [],
+  template: `
+    <dialog open>
+      <article>
+        <header>
+          <h2>Notifications</h2>
+        </header>
+        @for (notification of notifications(); track notification) {
+          @if (notification.type === 'error') {
+            <input disabled aria-invalid="true" [value]="notification.message" />
+          } @else {
+            <input disabled aria-invalid="false" [value]="notification.message" />
+          }
+        }
+        <footer>
+          <button (click)="close.emit()">Close</button>
+        </footer>
+      </article>
+    </dialog>
+  `,
+})
+export class NotificationsComponent {
+  // Inputs using signal-based input API
+  notifications: InputSignal<Notification[]> = input<Notification[]>([]);
+
+  // Outputs using new output API
+  close: OutputEmitterRef<void> = output();
+}
+```
+
+### Key patterns to follow:
+
+1. **Standalone component** with `standalone: true`
+2. **OnPush change detection** for better performance
+3. **Signal-based inputs** using `input<T>()`
+4. **Modern outputs** using `output()`
+5. **Control flow syntax** with `@for` and `@if`
+6. **JSDoc comments** for component documentation
+
+## Creating a presentational component
+
+Presentational components focus on UI and receive data via inputs:
+
+```typescript src/app/shared/ui/card.component.ts
+import { Component, InputSignal, input } from '@angular/core';
+
+@Component({
+  selector: 'app-card',
+  standalone: true,
+  template: `
+    <div class="card">
+      <h3>{{ title() }}</h3>
+      <p>{{ description() }}</p>
+      <ng-content></ng-content>
+    </div>
+  `,
+  styles: [`
+    .card {
+      padding: 1rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+  `]
+})
+export class CardComponent {
+  title: InputSignal<string> = input.required<string>();
+  description: InputSignal<string> = input<string>('');
+}
+```
+
+Usage:
+
+```typescript
+@Component({
+  imports: [CardComponent],
+  template: `
+    <app-card title="User Profile" description="Manage your account">
+      <button>Edit Profile</button>
+    </app-card>
+  `
+})
+```
+
+## Creating a smart component
+
+Smart components handle business logic and state management:
+
+```typescript src/app/features/profile/profile.component.ts
+import { Component, inject, Signal } from '@angular/core';
+import { AuthStore } from '@state/auth.store';
+import { User } from '@domain/user.type';
+import { CardComponent } from '@ui/card.component';
+
+@Component({
+  selector: 'app-profile',
+  standalone: true,
+  imports: [CardComponent],
+  template: `
+    <app-card 
+      [title]="user().name" 
+      [description]="user().email">
+      <p>User ID: {{ userId() }}</p>
+    </app-card>
+  `
+})
+export class ProfileComponent {
+  private authStore = inject(AuthStore);
+  
+  user: Signal<User> = this.authStore.user;
+  userId: Signal<number> = this.authStore.userId;
+}
+```
+
+## Using path aliases
+
+The project has configured path aliases in `tsconfig.json` for cleaner imports:
+
+```typescript
+// Instead of relative imports:
+import { NotificationsComponent } from '../../shared/ui/notifications.component';
+
+// Use path aliases:
+import { NotificationsComponent } from '@ui/notifications.component';
+import { User } from '@domain/user.type';
+import { AuthStore } from '@state/auth.store';
+import { AuthService } from '@api/auth.service';
+```
+
+Available aliases:
+- `@ui/*` → `src/app/shared/ui/*`
+- `@domain/*` → `src/app/shared/domain/*`
+- `@state/*` → `src/app/shared/services/state/*`
+- `@services/*` → `src/app/shared/services/*`
+- `@api/*` → `src/app/shared/services/api/*`
+- `@env/*` → `src/environments/*`
+
+## Inline vs external templates
+
+### Inline template (small components)
+
+```typescript
+@Component({
+  template: `<h1>{{ title }}</h1>`
+})
+```
+
+### External template (larger components)
+
+```typescript
+@Component({
+  templateUrl: './profile.component.html',
+  styleUrl: './profile.component.scss'
+})
+```
+
+<Warning>
+  Use `styleUrl` (singular) instead of `styleUrls` in Angular 17+.
+</Warning>
+
+## Best practices
+
+1. **Always use standalone components** - This is the recommended approach in Angular 15+
+2. **Use OnPush change detection** - Improves performance by reducing unnecessary checks
+3. **Prefer signal-based inputs** - Use `input<T>()` instead of `@Input()`
+4. **Use the new output API** - Use `output()` instead of `@Output()`
+5. **Follow the control flow syntax** - Use `@if`, `@for`, `@switch` instead of `*ngIf`, `*ngFor`
+6. **Add JSDoc comments** - Document inputs, outputs, and component purpose
+7. **Use path aliases** - Keep imports clean and maintainable
+8. **Organize by feature** - Group related components, services, and types together

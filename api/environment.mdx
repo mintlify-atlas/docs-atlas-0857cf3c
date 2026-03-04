@@ -1,0 +1,167 @@
+---
+title: Environment configuration
+description: Environment-specific configuration variables for different deployment environments
+---
+
+Environment configuration files define variables that differ between development and production environments. They are located in `src/environments/`.
+
+## Environment type
+
+The `Environment` type defines the structure for all environment configurations:
+
+```typescript
+export type Environment = {
+  appName: string;
+  apiUrl: string;
+  cookies: string;
+  securityOpen: boolean;
+};
+```
+
+<ParamField path="appName" type="string" required>
+  The display name of the application. Can include environment suffix for identification.
+</ParamField>
+
+<ParamField path="apiUrl" type="string" required>
+  The base URL for API requests. Should point to your backend server.
+</ParamField>
+
+<ParamField path="cookies" type="string" required>
+  Cookie policy setting. Values: `'none'`, `'all'`, or other cookie policy strings.
+</ParamField>
+
+<ParamField path="securityOpen" type="boolean" required>
+  Controls whether security restrictions are relaxed for development. Set to `true` in development, `false` in production.
+</ParamField>
+
+## Production environment
+
+Defined in `src/environments/environment.ts`:
+
+```typescript
+import { Environment } from './environment.type';
+
+export const environment: Environment = {
+  appName: 'Activity Bookings',
+  apiUrl: 'http://localhost:3000/api',
+  cookies: 'none',
+  securityOpen: false,
+};
+```
+
+## Development environment
+
+Defined in `src/environments/environment.development.ts`:
+
+```typescript
+import { Environment } from './environment.type';
+
+export const environment: Environment = {
+  appName: 'Activity Bookings (development)',
+  apiUrl: 'http://localhost:3000/api',
+  cookies: 'all',
+  securityOpen: true,
+};
+```
+
+### Key differences
+
+| Property | Production | Development |
+|----------|------------|-------------|
+| `appName` | `'Activity Bookings'` | `'Activity Bookings (development)'` |
+| `cookies` | `'none'` | `'all'` |
+| `securityOpen` | `false` | `true` |
+
+## Using environment variables
+
+Import and use environment variables in your application:
+
+```typescript
+import { environment } from '../environments/environment';
+
+// Use in services
+@Injectable({
+  providedIn: 'root'
+})
+export class ApiService {
+  private apiUrl = environment.apiUrl;
+
+  constructor(private http: HttpClient) {}
+
+  getData() {
+    return this.http.get(`${this.apiUrl}/data`);
+  }
+}
+```
+
+Angular CLI automatically imports the correct environment file based on the build configuration:
+
+- `ng serve` or `ng build` → uses `environment.development.ts`
+- `ng build --configuration production` → uses `environment.ts`
+
+## Adding new environment variables
+
+1. **Update the type definition** in `src/environments/environment.type.ts`:
+
+```typescript
+export type Environment = {
+  appName: string;
+  apiUrl: string;
+  cookies: string;
+  securityOpen: boolean;
+  newProperty: string;  // Add your new property
+};
+```
+
+2. **Add the property to both environment files**:
+
+```typescript
+// environment.ts
+export const environment: Environment = {
+  appName: 'Activity Bookings',
+  apiUrl: 'http://localhost:3000/api',
+  cookies: 'none',
+  securityOpen: false,
+  newProperty: 'production-value',
+};
+
+// environment.development.ts
+export const environment: Environment = {
+  appName: 'Activity Bookings (development)',
+  apiUrl: 'http://localhost:3000/api',
+  cookies: 'all',
+  securityOpen: true,
+  newProperty: 'development-value',
+};
+```
+
+3. **Use the new property in your application**:
+
+```typescript
+import { environment } from '../environments/environment';
+
+const value = environment.newProperty;
+```
+
+## Build configuration
+
+The Angular build system uses file replacements defined in `angular.json` to swap environment files:
+
+```json
+"configurations": {
+  "production": {
+    "fileReplacements": [
+      {
+        "replace": "src/environments/environment.ts",
+        "with": "src/environments/environment.development.ts"
+      }
+    ]
+  }
+}
+```
+
+This ensures type-safe environment configuration with automatic switching based on build mode.
+
+## Related
+
+- [Application configuration](/api/app-config) - Root application setup

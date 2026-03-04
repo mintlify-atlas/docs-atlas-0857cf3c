@@ -1,0 +1,141 @@
+---
+title: LanguageSwitchService
+description: Service for managing application language settings using ngx-translate
+---
+
+The `LanguageSwitchService` is an Angular service that manages multi-language support in the application. It provides methods to initialize, get, and set the current language, with automatic persistence to localStorage.
+
+## Overview
+
+This service is provided at the root level and integrates with `@ngx-translate/core` to handle language switching across the application.
+
+**Source:** `src/app/core/language-switch/language-switch.service.ts`
+
+## Static properties
+
+### availableLanguages
+
+```typescript
+public static readonly availableLanguages: string[] = ['en', 'es'];
+```
+
+An array of language codes that are supported by the application.
+
+<ResponseField name="availableLanguages" type="string[]" required>
+  Array of available language codes. Default: `['en', 'es']`
+</ResponseField>
+
+### defaultLanguage
+
+```typescript
+public static readonly defaultLanguage: string = LanguageSwitchService.availableLanguages[0];
+```
+
+The default language code used when no language is set or found in localStorage.
+
+<ResponseField name="defaultLanguage" type="string" required>
+  The default language code (first item from availableLanguages). Default: `'en'`
+</ResponseField>
+
+## Methods
+
+### initLanguageFromLocalStorage()
+
+```typescript
+public initLanguageFromLocalStorage(): void
+```
+
+Initializes the application language from localStorage. Should be called during application startup.
+
+**Behavior:**
+- Reads the `language` key from localStorage
+- Validates that the stored language is in `availableLanguages`
+- Sets the language if valid
+- Does nothing if no valid language is found (uses default)
+
+<ResponseField name="return" type="void">
+  No return value
+</ResponseField>
+
+### getCurrentLanguage()
+
+```typescript
+public getCurrentLanguage(): string
+```
+
+Retrieves the currently active language code.
+
+**Behavior:**
+- Returns the current language from TranslateService if set and different from default
+- Otherwise returns the default language
+
+<ResponseField name="return" type="string">
+  The current language code (e.g., 'en', 'es')
+</ResponseField>
+
+### setLanguage()
+
+```typescript
+public setLanguage(languageId: string): void
+```
+
+Sets the application language and persists it to localStorage.
+
+<ParamField path="languageId" type="string" required>
+  The language code to set (must be in `availableLanguages`)
+</ParamField>
+
+**Behavior:**
+- Validates that `languageId` is in `availableLanguages`
+- Updates the TranslateService with the new language
+- Saves the language to localStorage under the `language` key
+- Does nothing if the language code is invalid
+
+<ResponseField name="return" type="void">
+  No return value
+</ResponseField>
+
+## Usage example
+
+```typescript
+import { Component, inject, OnInit } from '@angular/core';
+import { LanguageSwitchService } from './core/language-switch/language-switch.service';
+
+@Component({
+  selector: 'app-root',
+  template: `
+    <button (click)="switchLanguage('en')">English</button>
+    <button (click)="switchLanguage('es')">Español</button>
+    <p>Current language: {{ currentLanguage }}</p>
+  `
+})
+export class AppComponent implements OnInit {
+  languageService = inject(LanguageSwitchService);
+  currentLanguage = '';
+
+  ngOnInit() {
+    // Initialize language from localStorage on startup
+    this.languageService.initLanguageFromLocalStorage();
+    this.currentLanguage = this.languageService.getCurrentLanguage();
+  }
+
+  switchLanguage(lang: string) {
+    this.languageService.setLanguage(lang);
+    this.currentLanguage = this.languageService.getCurrentLanguage();
+  }
+}
+```
+
+## Available languages
+
+To check which languages are supported:
+
+```typescript
+import { LanguageSwitchService } from './core/language-switch/language-switch.service';
+
+const languages = LanguageSwitchService.availableLanguages;
+console.log('Supported languages:', languages); // ['en', 'es']
+
+const defaultLang = LanguageSwitchService.defaultLanguage;
+console.log('Default language:', defaultLang); // 'en'
+```

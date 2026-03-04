@@ -1,0 +1,348 @@
+---
+title: Folder structure
+description: Complete directory organization and naming conventions for the Angular 18 Archetype
+---
+
+This guide explains the complete folder structure of the Angular 18 Archetype project and provides guidance on where to place new code.
+
+## Project root structure
+
+```
+angular18-archetype/
+├── src/
+│   ├── app/              # Application source code
+│   ├── assets/           # Static assets (images, i18n files)
+│   ├── environments/     # Environment configurations
+│   ├── index.html        # Main HTML file
+│   ├── main.ts          # Application bootstrap
+│   └── styles.scss      # Global styles
+├── public/              # Public static files
+├── angular.json         # Angular CLI configuration
+├── package.json         # Dependencies and scripts
+├── tsconfig.json        # TypeScript configuration
+└── README.md           # Project documentation
+```
+
+## Application structure
+
+The `src/app/` directory contains the main application code organized into layers:
+
+```
+src/app/
+├── config/              # Application configuration utilities
+│   └── httpLoaderFactory.ts
+├── core/                # Core layer (singleton services)
+│   ├── language-switch/
+│   ├── layout/
+│   └── providers/
+├── shared/              # Shared layer (reusable code)
+│   ├── domain/
+│   ├── services/
+│   └── ui/
+├── app.component.ts     # Root component
+├── app.config.ts        # Application providers configuration
+└── app.routes.ts        # Application routing
+```
+
+<Info>
+  The absence of a dedicated `features/` folder in this archetype means feature modules would be added directly under `src/app/` at the same level as `core/` and `shared/`.
+</Info>
+
+## Core layer structure
+
+The core layer contains application-wide singleton services and infrastructure:
+
+```
+src/app/core/
+├── language-switch/
+│   ├── language-switch.component.ts
+│   └── language-switch.service.ts
+├── layout/
+│   ├── cookies.component.ts
+│   └── error.service.ts
+└── providers/
+    ├── auth.guard.ts
+    └── auth.interceptor.ts
+```
+
+<Steps>
+  <Step title="language-switch/">
+    Internationalization components and services for managing application language settings
+  </Step>
+  
+  <Step title="layout/">
+    Layout components and services that structure the application's visual framework
+  </Step>
+  
+  <Step title="providers/">
+    Guards, interceptors, and other Angular providers that control application behavior
+  </Step>
+</Steps>
+
+## Shared layer structure
+
+The shared layer organizes reusable functionality across three main directories:
+
+```
+src/app/shared/
+├── domain/              # Type definitions and domain models
+│   ├── notification.type.ts
+│   ├── user.type.ts
+│   └── userAccessToken.type.ts
+├── services/            # Shared services
+│   ├── state/           # State management stores
+│   │   ├── auth.store.ts
+│   │   └── notifications.store.ts
+│   └── utils/           # Utility services
+│       ├── local.repository.ts
+│       └── platform.service.ts
+└── ui/                  # Reusable UI components
+    └── notifications.component.ts
+```
+
+### Domain types
+
+Type definitions that represent business entities:
+
+<Accordion title="Example: notification.type.ts">
+```typescript
+/** A notification for the user */
+export type Notification = { message: string; type: 'info' | 'error' };
+```
+</Accordion>
+
+<Accordion title="Example: user.type.ts">
+```typescript
+/**
+ * User type representation on the client side.
+ * @description This is a DTO for the user entity without password field
+ */
+export type User = {
+  id: number;
+  username: string;
+  email: string;
+  terms: boolean;
+};
+
+/** Null object pattern for the User type */
+export const NULL_USER: User = {
+  id: 0,
+  username: '',
+  email: '',
+  terms: false,
+};
+```
+</Accordion>
+
+### Service organization
+
+Services are organized by function:
+
+- **state/** - Signal-based stores for reactive state management
+- **utils/** - Utility services for common operations
+- **api/** - API communication services (to be added)
+
+### UI components
+
+Reusable standalone components that can be imported across features.
+
+## Environment configuration
+
+Environment-specific settings are centralized:
+
+```
+src/environments/
+├── environment.ts             # Production configuration
+├── environment.development.ts # Development configuration
+└── environment.type.ts        # Environment type definition
+```
+
+<Accordion title="Example: environment.ts">
+```typescript
+import { Environment } from './environment.type';
+
+export const environment: Environment = {
+  appName: 'Activity Bookings',
+  apiUrl: 'http://localhost:3000/api',
+  cookies: 'none',
+  securityOpen: false,
+};
+```
+</Accordion>
+
+## Assets organization
+
+Static assets are organized by type:
+
+```
+src/assets/
+└── i18n/                # Internationalization files
+    ├── en.json         # English translations
+    └── es.json         # Spanish translations
+```
+
+## Where to put new code
+
+Use this decision tree to determine where new code should go:
+
+<Steps>
+  <Step title="Is it used across the entire app?">
+    **Yes** → Core layer
+    
+    Examples:
+    - Authentication guards
+    - HTTP interceptors
+    - Global error handlers
+    - Layout components
+    
+    **Location:** `src/app/core/`
+  </Step>
+  
+  <Step title="Is it reusable across multiple features?">
+    **Yes** → Shared layer
+    
+    Examples:
+    - Domain types
+    - UI components (buttons, cards, modals)
+    - State management stores
+    - Utility services
+    
+    **Location:** `src/app/shared/`
+  </Step>
+  
+  <Step title="Is it specific to a business feature?">
+    **Yes** → Features layer
+    
+    Examples:
+    - User management module
+    - Dashboard components
+    - Booking forms
+    - Report pages
+    
+    **Location:** `src/app/[feature-name]/`
+  </Step>
+</Steps>
+
+<Warning>
+  Avoid creating deeply nested folder structures. Keep the hierarchy to a maximum of 3-4 levels for better maintainability.
+</Warning>
+
+## Naming conventions
+
+Follow these conventions for consistent code organization:
+
+### Files
+
+| Type | Convention | Example |
+|------|-----------|--------|
+| Component | `[name].component.ts` | `notifications.component.ts` |
+| Service | `[name].service.ts` | `language-switch.service.ts` |
+| Guard | `[name].guard.ts` | `auth.guard.ts` |
+| Interceptor | `[name].interceptor.ts` | `auth.interceptor.ts` |
+| Store | `[name].store.ts` | `auth.store.ts` |
+| Type | `[name].type.ts` | `user.type.ts` |
+| Interface | `[name].interface.ts` | `config.interface.ts` |
+| Repository | `[name].repository.ts` | `local.repository.ts` |
+
+### Directories
+
+- Use **kebab-case** for folder names: `language-switch/`, `user-profile/`
+- Use **singular** names for single-purpose folders: `domain/`, `layout/`
+- Use **plural** names for collections: `providers/`, `services/`
+
+### Classes and types
+
+- Use **PascalCase** for classes and types: `AuthStore`, `UserAccessToken`
+- Use **camelCase** for functions and variables: `authGuard`, `isAuthenticated`
+
+## Import path aliases
+
+The project uses TypeScript path aliases defined in `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "paths": {
+      "@ui/*": ["src/app/shared/ui/*"],
+      "@domain/*": ["src/app/shared/domain/*"],
+      "@state/*": ["src/app/shared/services/state/*"],
+      "@services/*": ["src/app/shared/services/*"],
+      "@api/*": ["src/app/shared/services/api/*"],
+      "@env/*": ["src/environments/*"]
+    }
+  }
+}
+```
+
+### Usage examples
+
+<CodeGroup>
+```typescript Domain types
+import { User } from '@domain/user.type';
+import { Notification } from '@domain/notification.type';
+```
+
+```typescript Services
+import { AuthStore } from '@state/auth.store';
+import { LocalRepository } from '@services/utils/local.repository';
+```
+
+```typescript Environment
+import { environment } from '@env/environment';
+```
+
+```typescript UI components
+import { NotificationsComponent } from '@ui/notifications.component';
+```
+</CodeGroup>
+
+<Note>
+  Always prefer path aliases over relative imports. This makes refactoring easier and improves code readability.
+</Note>
+
+## Example: Adding a new feature
+
+Let's say you want to add a "Bookings" feature:
+
+<Steps>
+  <Step title="Create feature folder">
+    ```bash
+    mkdir -p src/app/bookings
+    ```
+  </Step>
+  
+  <Step title="Add domain types to shared">
+    ```bash
+    # Create booking.type.ts in shared/domain
+    touch src/app/shared/domain/booking.type.ts
+    ```
+  </Step>
+  
+  <Step title="Create feature components">
+    ```bash
+    ng generate component bookings/booking-list --standalone
+    ng generate component bookings/booking-form --standalone
+    ```
+  </Step>
+  
+  <Step title="Add routing">
+    ```typescript
+    // src/app/bookings/bookings.routes.ts
+    export const BOOKINGS_ROUTES = [
+      { path: '', component: BookingListComponent },
+      { path: 'new', component: BookingFormComponent }
+    ];
+    ```
+  </Step>
+</Steps>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Core layer" icon="shield" href="/architecture/core-layer">
+    Learn about the core layer components and services
+  </Card>
+  <Card title="Shared layer" icon="share-nodes" href="/architecture/shared-layer">
+    Explore shared functionality and state management
+  </Card>
+</CardGroup>

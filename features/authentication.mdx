@@ -1,0 +1,350 @@
+---
+title: Authentication
+description: Signal-based authentication with guards, interceptors, and localStorage persistence
+---
+
+The Angular 18 Archetype implements a modern authentication system using Angular signals for reactive state management. The system includes type-safe user models, route guards, HTTP interceptors, and automatic token management.
+
+## Authentication architecture
+
+<Steps>
+  <Step title="User logs in">
+    Authentication credentials are sent to the backend API
+  </Step>
+
+  <Step title="Token received">
+    Backend returns a `UserAccessToken` containing user data and access token
+  </Step>
+
+  <Step title="State updated">
+    `AuthStore` saves the token to localStorage and updates signal state
+  </Step>
+
+  <Step title="Token attached">
+    `authInterceptor` automatically adds the Bearer token to all HTTP requests
+  </Step>
+
+  <Step title="Routes protected">
+    `authGuard` prevents unauthorized access to protected routes
+  </Step>
+</Steps>
+
+## Type definitions
+
+The authentication system uses strongly-typed models:
+
+### User type
+
+```typescript
+// src/app/shared/domain/user.type.ts
+export type User = {
+  id: number;
+  username: string;
+  email: string;
+  terms: boolean;
+};
+
+export const NULL_USER: User = {
+  id: 0,
+  username: '',
+  email: '',
+  terms: false,
+};
+```
+
+### UserAccessToken type
+
+```typescript
+// src/app/shared/domain/userAccessToken.type.ts
+import { NULL_USER, User } from './user.type';
+
+export type UserAccessToken = {
+  user: User;
+  accessToken: string;
+};
+
+export const NULL_USER_ACCESS_TOKEN: UserAccessToken = {
+  user: NULL_USER,
+  accessToken: '',
+};
+```
+
+<Note>
+  The null object pattern (`NULL_USER_ACCESS_TOKEN`) provides a safe default state and eliminates null checks throughout the application.
+</Note>
+
+## AuthStore: Signal-based state management
+
+The `AuthStore` service manages authentication state using Angular signals:
+
+```typescript
+// src/app/shared/services/state/auth.store.ts
+import { Injectable, Signal, WritableSignal, computed, inject, signal } from '@angular/core';
+import { User } from '@domain/user.type';
+import { NULL_USER_ACCESS_TOKEN, UserAccessToken } from '@domain/userAccessToken.type';
+import { LocalRepository } from '@services/utils/local.repository';
+
+@Injectable({
+  providedIn: 'root',
+})
+export class AuthStore {
+  #localRepository = inject(LocalRepository);
+
+  // Private writable signal with localStorage persistence
+  #state: WritableSignal<UserAccessToken> = signal<UserAccessToken>(
+    this.#localRepository.load('userAccessToken', NULL_USER_ACCESS_TOKEN),
+  );
+
+  // Public computed signals
+  userId: Signal<number> = computed(() => this.#state().user.id);
+  user: Signal<User> = computed(() => this.#state().user);
+  accessToken: Signal<string> = computed(() => this.#state().accessToken);
+  isAuthenticated: Signal<boolean> = computed(() => this.accessToken() !== '');
+  isAnonymous: Signal<boolean> = computed(() => this.accessToken() === '');
+
+  setState(userAccessToken: UserAccessToken): void {
+    this.#state.set(userAccessToken);
+    this.#localRepository.save('userAccessToken', userAccessToken);
+  }
+}
+```
+
+### Available signals
+
+<Accordion title="userId: Signal<number>">
+  Returns the current user's ID. Automatically updates when authentication state changes.
+  
+  ```typescript
+  const userId = authStore.userId(); // Access current value
+  ```
+</Accordion>
+
+<Accordion title="user: Signal<User>">
+  Returns the complete user object with id, username, email, and terms acceptance.
+  
+  ```typescript
+  const user = authStore.user();
+  console.log(user.email);
+  ```
+</Accordion>
+
+<Accordion title="accessToken: Signal<string>">
+  Returns the JWT access token string. Empty string when not authenticated.
+  
+  ```typescript
+  const token = authStore.accessToken();
+  ```
+</Accordion>
+
+<Accordion title="isAuthenticated: Signal<boolean>">
+  Returns `true` if user has a valid access token, `false` otherwise.
+  
+  ```typescript
+  if (authStore.isAuthenticated()) {
+    // User is logged in
+  }
+  ```
+</Accordion>
+
+<Accordion title="isAnonymous: Signal<boolean>">
+  Inverse of `isAuthenticated`. Returns `true` when no access token exists.
+  
+  ```typescript
+  if (authStore.isAnonymous()) {
+    // Show login prompt
+  }
+  ```
+</Accordion>
+
+## Authentication guard
+
+The `authGuard` protects routes from unauthorized access:
+
+```typescript
+// src/app/core/providers/auth.guard.ts
+import { inject } from '@angular/core';
+import { CanActivateFn, Router } from '@angular/router';
+import { environment } from '@env/environment';
+import { AuthStore } from '@services/state/auth.store';
+
+export const authGuard: CanActivateFn = () => {
+  if (environment.securityOpen) return true;
+  const authStore = inject(AuthStore);
+  if (authStore.isAuthenticated()) return true;
+  const router = inject(Router);
+  return router.createUrlTree(['/auth', 'login']);
+};
+```
+
+### How it works
+
+1. **Development bypass**: If `environment.securityOpen` is `true`, all routes are accessible
+2. **Check authentication**: Uses `authStore.isAuthenticated()` signal to check login status
+3. **Allow or redirect**: Returns `true` for authenticated users, or redirects to `/auth/login`
+
+### Using the guard
+
+```typescript
+// src/app/app.routes.ts
+import { Routes } from '@angular/router';
+import { authGuard } from './core/providers/auth.guard';
+
+export const routes: Routes = [
+  {
+    path: 'dashboard',
+    loadComponent: () => import('./pages/dashboard.component'),
+    canActivate: [authGuard], // Protected route
+  },
+  {
+    path: 'auth/login',
+    loadComponent: () => import('./pages/login.component'),
+    // Public route - no guard
+  },
+];
+```
+
+## Authentication interceptor
+
+The `authInterceptor` automatically adds authentication headers to HTTP requests and handles auth errors:
+
+```typescript
+// src/app/core/providers/auth.interceptor.ts
+import { HttpHandlerFn, HttpInterceptorFn, HttpRequest } from '@angular/common/http';
+import { inject } from '@angular/core';
+import { Router } from '@angular/router';
+import { NULL_USER_ACCESS_TOKEN } from '@domain/userAccessToken.type';
+import { AuthStore } from '@services/state/auth.store';
+import { NotificationsStore } from '@services/state/notifications.store';
+import { catchError, throwError } from 'rxjs';
+
+const AUTH_ERROR_CODE = 401;
+
+export const authInterceptor: HttpInterceptorFn = (req: HttpRequest<unknown>, next: HttpHandlerFn) => {
+  const authStore = inject(AuthStore);
+  const notificationsStore = inject(NotificationsStore);
+  const router = inject(Router);
+
+  // Add Authorization header
+  const accessToken = authStore.accessToken();
+  const authorizationHeader = accessToken ? `Bearer ${accessToken}` : '';
+  req = req.clone({
+    setHeaders: {
+      Authorization: authorizationHeader,
+    },
+  });
+
+  // Handle errors
+  return next(req).pipe(
+    catchError((error) => {
+      if (error.status === AUTH_ERROR_CODE) {
+        authStore.setState(NULL_USER_ACCESS_TOKEN);
+        router.navigate(['/auth', 'login']);
+      }
+      notificationsStore.addNotification({ message: error.message, type: 'error' });
+      return throwError(() => error);
+    }),
+  );
+};
+```
+
+### Interceptor responsibilities
+
+<Steps>
+  <Step title="Attach Bearer token">
+    Reads `accessToken` from `AuthStore` and adds `Authorization: Bearer <token>` header to all requests
+  </Step>
+
+  <Step title="Handle 401 errors">
+    When server returns 401 Unauthorized:
+    - Clears authentication state
+    - Redirects to login page
+  </Step>
+
+  <Step title="Display error notifications">
+    Adds error messages to `NotificationsStore` for user feedback
+  </Step>
+</Steps>
+
+### Registering the interceptor
+
+```typescript
+// src/app/app.config.ts
+import { ApplicationConfig, provideHttpClient, withInterceptors } from '@angular/core';
+import { authInterceptor } from './core/providers/auth.interceptor';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideHttpClient(withInterceptors([authInterceptor])),
+  ]
+};
+```
+
+## Authentication flow example
+
+Here's how to implement a login flow:
+
+```typescript
+import { inject, Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Router } from '@angular/router';
+import { AuthStore } from '@services/state/auth.store';
+import { UserAccessToken } from '@domain/userAccessToken.type';
+
+@Injectable({ providedIn: 'root' })
+export class AuthService {
+  #http = inject(HttpClient);
+  #authStore = inject(AuthStore);
+  #router = inject(Router);
+
+  login(username: string, password: string) {
+    return this.#http.post<UserAccessToken>('/api/auth/login', { username, password })
+      .subscribe({
+        next: (token) => {
+          // Save to store (automatically persists to localStorage)
+          this.#authStore.setState(token);
+          // Navigate to dashboard
+          this.#router.navigate(['/dashboard']);
+        },
+        error: (err) => console.error('Login failed', err)
+      });
+  }
+
+  logout() {
+    // Clear authentication state
+    this.#authStore.setState(NULL_USER_ACCESS_TOKEN);
+    // Redirect to login
+    this.#router.navigate(['/auth', 'login']);
+  }
+}
+```
+
+## Using auth state in components
+
+```typescript
+import { Component, inject } from '@angular/core';
+import { AuthStore } from '@services/state/auth.store';
+
+@Component({
+  selector: 'app-profile',
+  template: `
+    @if (authStore.isAuthenticated()) {
+      <h1>Welcome, {{ authStore.user().username }}!</h1>
+      <p>Email: {{ authStore.user().email }}</p>
+      <button (click)="logout()">Logout</button>
+    } @else {
+      <p>Please log in</p>
+    }
+  `
+})
+export class ProfileComponent {
+  authStore = inject(AuthStore);
+
+  logout() {
+    // Implementation here
+  }
+}
+```
+
+<Note>
+  Angular signals automatically trigger change detection when the authentication state updates, ensuring your UI stays synchronized.
+</Note>

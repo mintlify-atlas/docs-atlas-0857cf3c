@@ -1,97 +1,210 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: Angular 18 Archetype Documentation
+description: A production-ready Angular 18 starter template with i18n support, modular architecture, and signal-based state management
+mode: custom
 ---
 
-## Setting up
+<div className="relative overflow-hidden bg-gradient-to-br from-[#0f1117] via-[#1a1d27] to-[#0f1117] dark:bg-gradient-to-br dark:from-[#0f1117] dark:via-[#1a1d27] dark:to-[#0f1117] bg-white py-20">
+  <div className="max-w-6xl mx-auto px-6 lg:px-8">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+      <div className="lg:col-span-7">
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-6">
+          Angular 18 Archetype
+        </h1>
+        <p className="text-base sm:text-lg lg:text-xl text-gray-600 dark:text-gray-400 max-w-2xl mb-8">
+          A production-ready Angular 18 starter template with internationalization, modular folder architecture, and signal-based state management. Build scalable applications faster.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <a 
+            href="/quickstart" 
+            className="inline-flex items-center justify-center px-6 py-3 bg-[#7c7c7c] hover:bg-[#6a6a6a] text-white font-semibold rounded-full transition-colors"
+          >
+            Get Started
+          </a>
+          <a 
+            href="/architecture/overview" 
+            className="inline-flex items-center justify-center px-6 py-3 border border-gray-300 dark:border-[#27272a] bg-white/10 dark:bg-white/10 hover:bg-white/20 dark:hover:bg-white/20 text-gray-900 dark:text-white font-semibold rounded-full transition-colors"
+          >
+            View Architecture
+          </a>
+        </div>
+      </div>
+      <div className="lg:col-span-5 flex justify-center">
+        <div className="relative w-full max-w-md">
+          <div className="absolute inset-0 bg-gradient-to-r from-[#7c7c7c] to-[#cbcbcb] rounded-2xl blur-3xl opacity-20"></div>
+          <div className="relative bg-[#1a1d27] dark:bg-[#1a1d27] border border-[#27272a] dark:border-[#27272a] rounded-2xl p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-3 h-3 rounded-full bg-red-500"></div>
+              <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+              <div className="w-3 h-3 rounded-full bg-green-500"></div>
+            </div>
+            <pre className="text-sm text-gray-300 dark:text-gray-300 overflow-x-auto">
+              <code>{`ng new my-app --template=\\
+  angular-18-archetype
 
-Get your documentation site up and running in minutes.
+cd my-app
+npm install
+ng serve`}</code>
+            </pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 dark:text-white mb-3">
+    Quick start
+  </h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">
+    Get your Angular 18 application running in minutes with our pre-configured archetype
+  </p>
 
-## Make it yours
+  <Steps>
+    <Step title="Clone the repository">
+      Clone the Angular 18 archetype to your local machine:
+      
+      ```bash
+      git clone https://github.com/profileit/angular-18-archetype.git my-app
+      cd my-app
+      ```
+    </Step>
+    
+    <Step title="Install dependencies">
+      Install all required npm packages:
+      
+      ```bash
+      npm install
+      ```
+      
+      This will install Angular 18, @ngx-translate for i18n, and all development dependencies.
+    </Step>
+    
+    <Step title="Run the development server">
+      Start the Angular development server:
+      
+      ```bash
+      ng serve
+      ```
+      
+      Navigate to `http://localhost:4200/` in your browser. The application will automatically reload when you make changes.
+    </Step>
+    
+    <Step title="Explore the architecture">
+      The archetype comes with a pre-configured folder structure:
+      
+      - **core/** - Layout components, guards, interceptors
+      - **shared/** - Reusable services, domain types, UI components
+      - **config/** - Application configuration and translation setup
+      
+      <Note>
+        Learn more about the folder structure in the [Architecture guide](/architecture/overview).
+      </Note>
+    </Step>
+  </Steps>
+</div>
 
-Design a docs site that looks great and empowers your users.
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 dark:text-white mb-3">
+    Key features
+  </h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">
+    Everything you need to build production-ready Angular applications
+  </p>
 
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
-  </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
+  <CardGroup cols={2}>
+    <Card title="Internationalization" icon="language" href="/features/internationalization">
+      Built-in i18n support with @ngx-translate. Switch languages dynamically with localStorage persistence.
+    </Card>
+    <Card title="Modular Architecture" icon="layer-group" href="/architecture/folder-structure">
+      Clean separation of concerns with core, shared, and feature modules following Angular best practices.
+    </Card>
+    <Card title="Signal-Based State" icon="bolt" href="/features/state-management">
+      Modern state management using Angular signals for reactive, performant applications.
+    </Card>
+    <Card title="Authentication System" icon="lock" href="/features/authentication">
+      Pre-built auth guards, interceptors, and token management with automatic redirection.
+    </Card>
+    <Card title="Type Safety" icon="shield-check" href="/quickstart">
+      Full TypeScript support with strict mode enabled for maximum type safety.
+    </Card>
+    <Card title="Production Ready" icon="rocket" href="/architecture/overview">
+      Configured for production with optimized builds, lazy loading, and performance budgets.
+    </Card>
+  </CardGroup>
+</div>
 
-## Create beautiful pages
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 dark:text-white mb-3">
+    Explore the documentation
+  </h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">
+    Dive deeper into specific topics and API references
+  </p>
 
-Everything you need to create world-class documentation.
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <a 
+      href="/architecture/overview" 
+      className="group block rounded-2xl border border-gray-200 dark:border-[#27272a] hover:border-[#7c7c7c] dark:hover:border-[#7c7c7c] overflow-hidden no-underline transition-colors"
+    >
+      <div className="h-32 bg-gradient-to-br from-[#7c7c7c] to-[#cbcbcb] flex items-center justify-center">
+        <svg className="w-16 h-16 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+        </svg>
+      </div>
+      <div className="p-6 bg-white dark:bg-[#1a1d27]">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Architecture Guide</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+          Understand the modular folder structure and design principles behind the archetype.
+        </p>
+        <div className="flex items-center text-sm text-gray-900 dark:text-white group-hover:text-[#7c7c7c] dark:group-hover:text-[#7c7c7c] transition-colors">
+          Explore architecture
+          <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </a>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+    <a 
+      href="/api/language-switch-service" 
+      className="group block rounded-2xl border border-gray-200 dark:border-[#27272a] hover:border-[#7c7c7c] dark:hover:border-[#7c7c7c] overflow-hidden no-underline transition-colors"
+    >
+      <div className="h-32 bg-gradient-to-br from-[#050505] to-[#7c7c7c] flex items-center justify-center">
+        <svg className="w-16 h-16 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+        </svg>
+      </div>
+      <div className="p-6 bg-white dark:bg-[#1a1d27]">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">API Reference</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+          Complete API documentation for services, stores, guards, and configuration.
+        </p>
+        <div className="flex items-center text-sm text-gray-900 dark:text-white group-hover:text-[#7c7c7c] dark:group-hover:text-[#7c7c7c] transition-colors">
+          Browse API docs
+          <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </a>
+  </div>
+</div>
 
-## Need inspiration?
-
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="bg-gradient-to-br from-[#7c7c7c] to-[#cbcbcb] rounded-2xl p-8 md:p-12 text-center">
+    <h2 className="text-2xl sm:text-3xl font-semibold text-white mb-4">
+      Ready to start building?
+    </h2>
+    <p className="text-base text-white/90 max-w-2xl mx-auto mb-6">
+      Clone the repository and start building your Angular 18 application with a solid foundation.
+    </p>
+    <a 
+      href="/quickstart" 
+      className="inline-flex items-center justify-center px-6 py-3 bg-white hover:bg-gray-100 text-gray-900 font-semibold rounded-full transition-colors"
+    >
+      Get Started Now
+    </a>
+  </div>
+</div>
